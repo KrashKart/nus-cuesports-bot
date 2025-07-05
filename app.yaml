@@ -1,0 +1,19 @@
+runtime: python39
+entrypoint: python src/main.py
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 5
+  target_cpu_utilization: 0.6
+  target_throughput_utilization: 0.6
+
+health_check:
+  enable_health_check: false
+  check_interval_sec: 300     # Check every 5 minutes
+  timeout_sec: 4              # Max 4 seconds to respond
+  unhealthy_threshold: 2      # Mark instance unhealthy after 2 failed checks
+  healthy_threshold: 2        # Mark instance healthy after 2 successful checks
+  restart_threshold: 3        # Restart after 3 failed checks
+
+env_variables:
+  TZ: "Asia/Singapore"

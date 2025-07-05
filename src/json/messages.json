@@ -1,0 +1,22 @@
+{
+    "Prepoll Announcement": "<b>PRE-POLL Announcement!</b>\n\nHi everyone! Polls for next week's training sessions will be released tonight at <b>6pm</b>. Please take note of the following:\n\n1. Ensure that you have STARTED the <a href=\"https://t.me/nuscuesportsbot\">NUS Cuesports Bot</a> (@nuscuesportsbot) and received a confirmation message.\n\n2. Press <b>ONCE</b> on the poll to register your interest.\n\n3. Training fee: <b>$8.00 per pax (Maximum 36 pax)</b>. Please wait for a confirmation message from the TDs before making payment. Payment must be made by <b>Sunday 12pm</b>, or your slot will be forfeited.\n\n4. <b>No changing and cancellation allowed after Sunday 12pm.</b> However, you are free to swap or sell your slots to someone - just inform @jaydennolife to update the records. (No need to submit a new Google form.)\n\n5. Training timings are as follows:\n   POLL_OPTIONS\nLocation: Aspire Recreation Centre (HarbourFront Centre).\n\n6. The poll <b>closes on Friday 2359</b>. Indicate your interest early to secure your slot.\n\n7. Please note that you <b>must receive a message from the bot asking for payment and submit the Google form</b> before attending the session. Unconfirmed walk-ins will not be allowed.\n\nLooking forward to seeing you all next week! Feel free to reach out if you have any questions.",
+    "Poll": {
+        "Question": "Training Sessions",
+        "Options": [
+            "Monday 7pm-9pm",
+            "Wednesday 3pm-5pm",
+            "Wednesday 7pm-9pm"
+        ],
+        "all_options": [
+            "Monday 7pm-9pm",
+            "Wednesday 3pm-5pm",
+            "Wednesday 7pm-9pm"
+        ]
+    },
+    "Confirmation": {
+        "Body": "Hi, thank you for signing up! This message is to confirm your slot for the upcoming session next MESSAGE_FORMAT.\n\nPlease make payment ($TO_BE_PAID) via PayNow/PayLah! to TRAINING_DIRECTOR @ PHONE_NUMBER within the next 24 hours and indicate \"NUS Cuesports\" as well as your telegram handle in the remarks section. Late payment might cause you to lose your slot for other people on the waiting list if there is an overwhelming response.\n\nPlease kindly upload the screenshot of the proof of payment via this google form (GOOGLE_DOC) after payment. Thank you!",
+        "Google Doc": "https://forms.gle/n2SoBScdTK2tyoHA6",
+        "Training Director": "Jun Hern",
+        "Phone Number": "97866761"
+    }
+}
