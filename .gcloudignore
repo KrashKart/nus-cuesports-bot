@@ -1,4 +1,7 @@
-.venv/
+Include/
+Lib/
+Scripts/
+
 __pycache__/
 *.pyc
 node_modules/
