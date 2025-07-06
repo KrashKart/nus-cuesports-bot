@@ -168,3 +168,5 @@ cython_debug/
 # Ignore service account key file
 service-account-key.json
 
+# Ignore json files
+src/json/
