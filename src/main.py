@@ -291,9 +291,10 @@ def main():
         try:
             if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
                 params = message.text.strip().split()
-                send_log_message(bot, params)
-                if len(params) == 1:
-                    bot.send_message(message.chat.id, "Enter a name to register you as!\nusage: /register_super_user <name>")
+                if user_id in [user["id"] for user in super_users]:
+                    bot.send_message(message.chat.id, "You are already a super user!")
+                elif len(params) == 1:
+                    bot.send_message(message.chat.id, "Enter a name to register you under!\nusage: /register_super_user <name>")
                 else:
                     nickname = " ".join(params[1:])
                     super_users.append({"id": user_id, "name": nickname})
@@ -312,11 +313,11 @@ def main():
         user_id = message.from_user.id
         try:
             if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                to_remove = list(filter(lambda x: x["id"] == user_id, super_users))[0]
+                to_remove = list(filter(lambda x: x["id"] == user_id, super_users))
                 if not to_remove:
                     bot.send_message(message.chat.id, f"You are not a super user")
                 else:
-                    super_users.remove(to_remove)
+                    super_users.remove(to_remove[0])
                     config["super_users"] = super_users
                     send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user")
                     save_json_file_to_gcs("config.json", config)
@@ -339,9 +340,9 @@ def main():
     @bot.message_handler(commands=['list_super_users'])
     def list_super_users_handler(message: Message):
         try:
-            super_user_str = "\n".join([f"* {user['id']}" for user in super_users]).strip()
+            super_user_str = "\n".join([f"• {user['name']}: {user['id']}" for user in super_users]).strip()
             if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                bot.send_message(message.chat.id, f"Super users are: {super_user_str}")
+                bot.send_message(message.chat.id, f"Super users are:\n{super_user_str if super_user_str else '• No super users found!'}")
             else:
                 bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
         except Exception as e:
