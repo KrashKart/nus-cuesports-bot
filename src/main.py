@@ -317,11 +317,12 @@ def main():
                 if not to_remove:
                     bot.send_message(message.chat.id, f"You are not a super user")
                 else:
-                    super_users.remove(to_remove[0])
+                    to_remove = to_remove[0]
+                    super_users.remove(to_remove)
                     config["super_users"] = super_users
-                    send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user")
                     save_json_file_to_gcs("config.json", config)
-                    bot.send_message(message.chat.id, f"{to_remove[0]['name']} has been deregistered as super user")
+                    send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user")
+                    bot.send_message(message.chat.id, f"{to_remove['name']} has been deregistered as super user")
             else:
                 bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
         except Exception as e:
