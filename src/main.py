@@ -1,28 +1,23 @@
 from dotenv import load_dotenv
 import telebot
 import os
-import json
 import logging
-import datetime, time
 import re
-from datetime import datetime, timedelta
 import pytz
 import sys
 from features.polls import end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
-from commands.group_management import set_admin_group, set_recre_group
+from commands.group_management import set_admin_group, set_recre_group, set_spam_test_group
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
-from google.cloud import storage
 from flask import Flask, jsonify, request, abort
-from google.cloud import scheduler_v1
-from google.protobuf import timestamp_pb2
+from telebot.types import Message
 
-try:
-    from utils.tg_logging import send_log_message
-except ImportError:
-    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "utils"))
-    from tg_logging import send_log_message
+# try:
+from utils.tg_logging import send_log_message
+# except ImportError:
+#     sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "utils"))
+#     from tg_logging import send_log_message
 
 singapore_tz = pytz.timezone('Asia/Singapore')
 
@@ -77,8 +72,14 @@ def main():
     groups = config.get("groups", {})
     schedules = config.get("schedules", {})
     super_users = config.get("super_users", [])
-    ADMIN_GROUP = groups["ADMIN_GROUP"]["id"]
-    RECRE_GROUP = groups["RECRE_GROUP"]["id"]
+
+    ADMIN_GROUP = groups.get("ADMIN_GROUP", {}).get("id", None)
+    RECRE_GROUP = groups.get("RECRE_GROUP", {}).get("id", None)
+    SPAM_TEST_GROUP = groups.get("SPAM_TEST_GROUP", {}).get("id", None)
+
+    assert ADMIN_GROUP != None, "ADMIN_GROUP is None"
+    assert RECRE_GROUP != None, "RECRE_GROUP is None"
+    assert SPAM_TEST_GROUP != None, "SPAM_TEST_GROUP is None"
 
     bot = create_bot(api_key)
 
@@ -148,19 +149,19 @@ def main():
             return jsonify({"status": "error", "message": str(e)}), 500
         
     @bot.message_handler(commands=['start'])
-    def start_command(message):
+    def start_command(message: Message):
         bot.send_message(message.chat.id, "Thank you for starting the bot, this bot will be sending you the confirmation messages for the training sessions.")
-        if message.chat.id == ADMIN_GROUP:
+        if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
             bot.send_message(message.chat.id, "Starting bot...")
             logger.info(f"Bot started by admin: {message.chat.id}")
         if message.chat.id == super_users[0]["id"]:
             bot.send_message(message.chat.id, f"Admin Group: {ADMIN_GROUP['name']}({ADMIN_GROUP['id']})")
 
     @bot.message_handler(commands=['help', 'command_list'])
-    def help_command(message):
-        if message.chat.id == ADMIN_GROUP:
+    def help_command(message: Message):
+        if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
             bot.send_message(
-                ADMIN_GROUP,
+                message.chat.id,
                 text=(
                     "<blockquote><b>Command List</b></blockquote>"
                     "/restart [Restart Bot, for rescheduling the polls]\n"
@@ -172,7 +173,7 @@ def main():
             )
 
     @bot.message_handler(commands=['prepoll'])
-    def start_prepoll_announcement(message):
+    def start_prepoll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
             formatted_slots = " /n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
             prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
@@ -180,7 +181,7 @@ def main():
             logger.info(f"Prepoll announcement sent to: {RECRE_GROUP}")
 
     @bot.message_handler(commands=['poll'])
-    def handle_start_poll_announcement(message):
+    def handle_start_poll_announcement(message: Message):
         start_poll_announcement(bot, messages, polls, groups, message_ids, schedules["poll"]["end"])
 
     @bot.callback_query_handler(func=lambda call: True)
@@ -192,21 +193,21 @@ def main():
             confirm_payment_query(call, bot, payments, group_id)
 
     @bot.message_handler(commands=["confirmation"])
-    def handle_confirmation_message(message):
+    def handle_confirmation_message(message: Message):
         if message.chat.id == ADMIN_GROUP:
             send_confirmation_message(bot, ADMIN_GROUP, message_ids, payments, messages)
 
     @bot.message_handler(commands=["unconfirm"])
-    def handle_unconfirm_message(message):
+    def handle_unconfirm_message(message: Message):
         if message.chat.id == ADMIN_GROUP:
             unconfirm_payment(bot, message, payments, ADMIN_GROUP)
 
     @bot.message_handler(commands=['update_schedule'])
-    def update_schedule_handler(message):
+    def update_schedule_handler(message: Message):
         update_schedule(bot, message, schedules, config, ADMIN_GROUP)
 
     @bot.message_handler(commands=['update_session'])
-    def update_session(message):
+    def update_session(message: Message):
         if message.chat.id != ADMIN_GROUP:
             return
         try:
@@ -227,28 +228,125 @@ def main():
             logger.error(f"Error updating schedule: {e}")
 
     @bot.message_handler(commands=['current_schedule'])
-    def send_current_schedule_handler(message):
+    def send_current_schedule_handler(message: Message):
         send_current_schedule(bot, message, schedules, ADMIN_GROUP)
 
     @bot.message_handler(commands=['set_recre'])
-    def set_recre_group_handler(message):
-        set_recre_group(bot, message, super_users, groups, config)
+    def set_recre_group_handler(message: Message):
+        result = set_recre_group(bot, message, super_users, groups, config)
+        if result:
+            RECRE_GROUP = groups["RECRE_GROUP"]["id"]
 
     @bot.message_handler(commands=['set_admin'])
-    def set_admin_group_handler(message):
-        set_admin_group(bot, message, super_users, groups, config)
+    def set_admin_group_handler(message: Message):
+        result = set_admin_group(bot, message, super_users, groups, config)
+        if result:
+            ADMIN_GROUP = groups["ADMIN_GROUP"]["id"]
+
+    @bot.message_handler(commands=['set_spam_test'])
+    def set_spam_test_group_handler(message: Message):
+        result = set_spam_test_group(bot, message, super_users, groups, config)
+        if result:
+            SPAM_TEST_GROUP = groups["SPAM_TEST_GROUP"]["id"]
 
     @bot.message_handler(commands=['restart'])
-    def restart(message):
+    def restart(message: Message):
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(message.chat.id, "Restarting the bot...")
             restart_bot()
 
     @bot.message_handler(commands=['end_poll'])
-    def end_poll_handler(message):
+    def end_poll_handler(message: Message):
         user_id = message.from_user.id
         if any(user["id"] == user_id for user in super_users):
             manual_end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages)
+
+    @bot.message_handler(commands=['get_user_id'])
+    def get_user_id_handler(message: Message):
+        user_id = message.from_user.id
+        try:
+            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+                bot.send_message(message.chat.id, f"Your user id is {user_id}")
+            else:
+                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Error getting user id: {e}")
+            logger.error(f"Error getting user id: {e}")
+    
+    @bot.message_handler(commands=['get_group_id'])
+    def get_group_id_handler(message: Message):
+        user_id = message.from_user.id
+        try:
+            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+                bot.send_message(message.chat.id, f"The group id is {message.chat.id}")
+            else:
+                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Error getting group id: {e}")
+            logger.error(f"Error getting group id: {e}")
+
+    @bot.message_handler(commands=['register_super_user'])
+    def register_super_user_handler(message: Message):
+        user_id = message.from_user.id
+        try:
+            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+                params = message.text.strip().split()
+                send_log_message(bot, params)
+                if len(params) == 1:
+                    bot.send_message(message.chat.id, "Enter a name to register you as!\nusage: /register_super_user <name>")
+                else:
+                    nickname = " ".join(params[1:])
+                    super_users.append({"id": user_id, "name": nickname})
+                    config["super_users"] = super_users
+                    save_json_file_to_gcs("config.json", config)
+                    send_log_message(bot, f"{nickname}: {user_id} registered as super user")
+                    bot.send_message(message.chat.id, f"{nickname} has been registered as a super user")
+            else:
+                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Error unregistering: {e}")
+            logger.error(f"Error unregistering: {e}")
+    
+    @bot.message_handler(commands=['unregister_super_user'])
+    def unregister_super_user_handler(message: Message):
+        user_id = message.from_user.id
+        try:
+            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+                to_remove = list(filter(lambda x: x["id"] == user_id, super_users))[0]
+                if not to_remove:
+                    bot.send_message(message.chat.id, f"You are not a super user")
+                else:
+                    super_users.remove(to_remove)
+                    config["super_users"] = super_users
+                    send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user")
+                    save_json_file_to_gcs("config.json", config)
+                    bot.send_message(message.chat.id, f"{to_remove[0]['name']} has been deregistered as super user")
+            else:
+                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Error unregistering: {e}")
+            logger.error(f"Error unregistering: {e}")
+
+    @bot.message_handler(commands=['is_super_user'])
+    def is_super_user_handler(message: Message):
+        user_id = message.from_user.id
+        super_user_ids = [user["id"] for user in super_users]
+        if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+            bot.send_message(message.chat.id, f"You are{' not' if user_id not in super_user_ids else ''} a super user.")
+        else:
+            bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+
+    @bot.message_handler(commands=['list_super_users'])
+    def list_super_users_handler(message: Message):
+        try:
+            super_user_str = "\n".join([f"* {user['id']}" for user in super_users]).strip()
+            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+                bot.send_message(message.chat.id, f"Super users are: {super_user_str}")
+            else:
+                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+        except Exception as e:
+            bot.send_message(message.chat.id, f"Error listing super users: {e}")
+            logger.error(f"Error listing super users: {e}")
 
     # Schedule tasks
     job_name = 'prepoll_job'
