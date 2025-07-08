@@ -8,10 +8,11 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - [X] View super users
   - [X] Check if user is super user
 - [X] Add id checking functionality (user id, group id)
-- [ ] Make bot accept more than 1 admin chat id
-- [ ] Shift code to commands folder and modularize
+- [X] Shift code to commands folder and modularize
+- [ ] Update help command (command list)
 
 💡Trivial
 - [ ] Change contact details for messages
 - [ ] Try to automate message generation
+- [ ] Make bot accept more than 1 admin chat id
 - [ ] Clean and refactor code

@@ -5,10 +5,14 @@ import logging
 import re
 import pytz
 import sys
+
 from features.polls import end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
+
 from commands.group_management import set_admin_group, set_recre_group, set_spam_test_group
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
+from commands.super_user import get_user_id, get_group_id, register_super_user, unregister_super_user, is_super_user, list_super_users
+
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
 from telebot.types import Message
@@ -235,18 +239,21 @@ def main():
     def set_recre_group_handler(message: Message):
         result = set_recre_group(bot, message, super_users, groups, config)
         if result:
+            nonlocal RECRE_GROUP
             RECRE_GROUP = groups["RECRE_GROUP"]["id"]
 
     @bot.message_handler(commands=['set_admin'])
     def set_admin_group_handler(message: Message):
         result = set_admin_group(bot, message, super_users, groups, config)
         if result:
+            nonlocal ADMIN_GROUP
             ADMIN_GROUP = groups["ADMIN_GROUP"]["id"]
 
     @bot.message_handler(commands=['set_spam_test'])
     def set_spam_test_group_handler(message: Message):
         result = set_spam_test_group(bot, message, super_users, groups, config)
         if result:
+            nonlocal SPAM_TEST_GROUP
             SPAM_TEST_GROUP = groups["SPAM_TEST_GROUP"]["id"]
 
     @bot.message_handler(commands=['restart'])
@@ -263,92 +270,27 @@ def main():
 
     @bot.message_handler(commands=['get_user_id'])
     def get_user_id_handler(message: Message):
-        user_id = message.from_user.id
-        try:
-            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                bot.send_message(message.chat.id, f"Your user id is {user_id}")
-            else:
-                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error getting user id: {e}")
-            logger.error(f"Error getting user id: {e}")
+        get_user_id(bot, message, super_users, groups, config)
     
     @bot.message_handler(commands=['get_group_id'])
     def get_group_id_handler(message: Message):
-        user_id = message.from_user.id
-        try:
-            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                bot.send_message(message.chat.id, f"The group id is {message.chat.id}")
-            else:
-                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error getting group id: {e}")
-            logger.error(f"Error getting group id: {e}")
+        get_group_id(bot, message, super_users, groups, config)
 
     @bot.message_handler(commands=['register_super_user'])
     def register_super_user_handler(message: Message):
-        user_id = message.from_user.id
-        try:
-            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                params = message.text.strip().split()
-                if user_id in [user["id"] for user in super_users]:
-                    bot.send_message(message.chat.id, "You are already a super user!")
-                elif len(params) == 1:
-                    bot.send_message(message.chat.id, "Enter a name to register you under!\nusage: /register_super_user <name>")
-                else:
-                    nickname = " ".join(params[1:])
-                    super_users.append({"id": user_id, "name": nickname})
-                    config["super_users"] = super_users
-                    save_json_file_to_gcs("config.json", config)
-                    send_log_message(bot, f"{nickname}: {user_id} registered as super user")
-                    bot.send_message(message.chat.id, f"{nickname} has been registered as a super user")
-            else:
-                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error unregistering: {e}")
-            logger.error(f"Error unregistering: {e}")
+        register_super_user(bot, message, super_users, groups, config)
     
     @bot.message_handler(commands=['unregister_super_user'])
     def unregister_super_user_handler(message: Message):
-        user_id = message.from_user.id
-        try:
-            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                to_remove = list(filter(lambda x: x["id"] == user_id, super_users))
-                if not to_remove:
-                    bot.send_message(message.chat.id, f"You are not a super user")
-                else:
-                    to_remove = to_remove[0]
-                    super_users.remove(to_remove)
-                    config["super_users"] = super_users
-                    save_json_file_to_gcs("config.json", config)
-                    send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user")
-                    bot.send_message(message.chat.id, f"{to_remove['name']} has been deregistered as super user")
-            else:
-                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error unregistering: {e}")
-            logger.error(f"Error unregistering: {e}")
+        unregister_super_user(bot, message, super_users, groups, config)
 
     @bot.message_handler(commands=['is_super_user'])
     def is_super_user_handler(message: Message):
-        user_id = message.from_user.id
-        super_user_ids = [user["id"] for user in super_users]
-        if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-            bot.send_message(message.chat.id, f"You are{' not' if user_id not in super_user_ids else ''} a super user.")
-        else:
-            bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
+        is_super_user(bot, message, super_users, groups, config)
 
     @bot.message_handler(commands=['list_super_users'])
     def list_super_users_handler(message: Message):
-        try:
-            super_user_str = "\n".join([f"• {user['name']}: {user['id']}" for user in super_users]).strip()
-            if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
-                bot.send_message(message.chat.id, f"Super users are:\n{super_user_str if super_user_str else '• No super users found!'}")
-            else:
-                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error listing super users: {e}")
-            logger.error(f"Error listing super users: {e}")
+        list_super_users(bot, message, super_users, groups, config)
 
     # Schedule tasks
     job_name = 'prepoll_job'
