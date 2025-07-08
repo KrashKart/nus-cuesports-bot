@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "telebot": "1.4.1"
+    "telebot": "^1.4.1"
   }
 }
