@@ -294,13 +294,13 @@ def main():
 
     # Schedule tasks
     job_name = 'prepoll_job'
-    create_or_update_scheduler_job("prepoll", schedules["prepoll"]["day"], schedules["prepoll"]["time"], job_name, schedules)
+    create_or_update_scheduler_job("prepoll", schedules["prepoll"]["day"], schedules["prepoll"]["time"], job_name)
 
     job_name = 'poll_job'
-    create_or_update_scheduler_job("poll", schedules["poll"]["day"], schedules["poll"]["time"], job_name, schedules)
+    create_or_update_scheduler_job("poll", schedules["poll"]["day"], schedules["poll"]["time"], job_name)
 
     job_name = 'end_job'
-    create_or_update_scheduler_job("end", schedules["poll"]["end"]["day"], schedules["poll"]["end"]["time"], job_name, schedules)
+    create_or_update_scheduler_job("end", schedules["poll"]["end"]["day"], schedules["poll"]["end"]["time"], job_name)
 
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
 

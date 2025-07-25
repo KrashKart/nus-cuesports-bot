@@ -1,7 +1,11 @@
 from google.cloud import scheduler_v1
+from google.api_core.exceptions import NotFound
 from utils.gcs_utils import save_json_file_to_gcs
 from dotenv import load_dotenv
 import logging, os, datetime
+
+from telebot import TeleBot
+from telebot.types import Message
 
 # Load environment variables
 load_dotenv()
@@ -18,7 +22,7 @@ DAYS = {"sunday": "0",
         "saturday": "6"
         }
 
-def create_or_update_scheduler_job(schedule_type, day, time, job_name):
+def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
     parent = f'projects/{PROJECT_ID}/locations/{LOCATION_ID}'
 
@@ -40,24 +44,15 @@ def create_or_update_scheduler_job(schedule_type, day, time, job_name):
 
     # Create or update the job
     try:
-        job_exists = False
-        try:
-            client.get_job(name=job['name'])
-            job_exists = True
-        except:
-            pass
-
-        if job_exists:
-            if client.get_job(name=job['name']) == cron_expression:
-                return
+        if client.get_job(name=job['name']).schedule != cron_expression:
             client.update_job(job=job)
-        else:
-            client.create_job(parent=parent, job=job)
+    except NotFound:
+        client.create_job(parent=parent, job=job)
     except Exception as e:
         logger.error(f"Error creating/updating scheduler job: {e}")
         raise
 
-def delete_scheduler_job(job_name):
+def delete_scheduler_job(job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
     
     name = f'projects/{PROJECT_ID}/locations/{LOCATION_ID}/jobs/{job_name}'
@@ -69,7 +64,7 @@ def delete_scheduler_job(job_name):
         print(f'Error deleting job: {e}')
         raise
 
-def update_schedule(bot, message, schedules, config, ADMIN_GROUP):
+def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dict, ADMIN_GROUP: int) -> None:
     if message.chat.id == ADMIN_GROUP:
         try:
             command_params = message.text.split()
@@ -81,7 +76,7 @@ def update_schedule(bot, message, schedules, config, ADMIN_GROUP):
             if schedule_type not in ["prepoll", "poll", "end"]:
                 bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
                 return
-            elif day not in DAYS.keys():
+            elif day.lower() not in DAYS.keys():
                 bot.send_message(message.chat.id, "Invalid day. Use 'sunday', 'monday', etc (Lower/Upper case both accepted).")
                 return
             elif not is_valid_time(time):
@@ -97,7 +92,7 @@ def update_schedule(bot, message, schedules, config, ADMIN_GROUP):
             
             # Update Cloud Scheduler job
             job_name = f'{schedule_type}_job'
-            create_or_update_scheduler_job(schedule_type, day, time, job_name, schedules)
+            create_or_update_scheduler_job(schedule_type, day, time, job_name)
 
             config["schedules"] = schedules
             save_json_file_to_gcs("config.json", config)
@@ -107,7 +102,7 @@ def update_schedule(bot, message, schedules, config, ADMIN_GROUP):
             bot.send_message(message.chat.id, f"Error updating schedule: {e}")
             logger.error(f"Error updating schedule: {e}")
 
-def send_current_schedule(bot, message, schedules, ADMIN_GROUP) -> None:
+def send_current_schedule(bot: TeleBot, message: Message, schedules: dict, ADMIN_GROUP: int) -> None:
     if message.chat.id == ADMIN_GROUP:
         schedule_info = f"<blockquote><b>Current Schedule:</b></blockquote>\n"
         for key, value in schedules.items():
@@ -123,3 +118,4 @@ def is_valid_time(time_str: str) -> bool:
         return True
     except ValueError:
         return False
+    
