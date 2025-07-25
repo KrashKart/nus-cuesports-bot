@@ -1,9 +1,7 @@
 from google.cloud import scheduler_v1
-from google.protobuf import timestamp_pb2
 from utils.gcs_utils import save_json_file_to_gcs
 from dotenv import load_dotenv
-import logging
-import os
+import logging, os, datetime
 
 # Load environment variables
 load_dotenv()
@@ -11,22 +9,22 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 LOCATION_ID = os.getenv("LOCATION_ID")
-
-def create_or_update_scheduler_job(schedule_type, day, time, job_name, schedules):
-    client = scheduler_v1.CloudSchedulerClient()
-    parent = f'projects/{PROJECT_ID}/locations/{LOCATION_ID}'
-
-    # Convert day and time to cron expression
-    hour, minute = time.split(":")
-    day_of_week = {
-        "sunday": "0",
+DAYS = {"sunday": "0",
         "monday": "1",
         "tuesday": "2",
         "wednesday": "3",
         "thursday": "4",
         "friday": "5",
         "saturday": "6"
-    }.get(day.lower(), "*")
+        }
+
+def create_or_update_scheduler_job(schedule_type, day, time, job_name):
+    client = scheduler_v1.CloudSchedulerClient()
+    parent = f'projects/{PROJECT_ID}/locations/{LOCATION_ID}'
+
+    # Convert day and time to cron expression
+    hour, minute = time.split(":")
+    day_of_week = DAYS.get(day.lower(), "*")
 
     cron_expression = f'{minute} {hour} * * {day_of_week}'
 
@@ -75,17 +73,19 @@ def update_schedule(bot, message, schedules, config, ADMIN_GROUP):
     if message.chat.id == ADMIN_GROUP:
         try:
             command_params = message.text.split()
-            if len(command_params) < 4:
+            if len(command_params) != 4:
                 bot.send_message(message.chat.id, "Usage: /update_schedule <prepoll/poll/end> <day> <time>")
-                return
-            
-            if (schedule_type := command_params[1]) not in ["prepoll", "poll", "end"]:
-                bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
                 return
             
             schedule_type, day, time = command_params[1], command_params[2], command_params[3]
             if schedule_type not in ["prepoll", "poll", "end"]:
                 bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
+                return
+            elif day not in DAYS.keys():
+                bot.send_message(message.chat.id, "Invalid day. Use 'sunday', 'monday', etc (Lower/Upper case both accepted).")
+                return
+            elif not is_valid_time(time):
+                bot.send_message(message.chat.id, "Invalid time. Time should be in format 'HH:MM'.")
                 return
 
             if schedule_type == "end":
@@ -101,18 +101,25 @@ def update_schedule(bot, message, schedules, config, ADMIN_GROUP):
 
             config["schedules"] = schedules
             save_json_file_to_gcs("config.json", config)
-            bot.send_message(message.chat.id, f"Schedule updated: {schedule_type} on {day} at {time}")
+            bot.send_message(message.chat.id, f"Schedule updated: {schedule_type.capitalize()} on {day.capitalize()}, {time}")
 
         except Exception as e:
             bot.send_message(message.chat.id, f"Error updating schedule: {e}")
             logger.error(f"Error updating schedule: {e}")
 
-def send_current_schedule(bot, message, schedules, ADMIN_GROUP):
+def send_current_schedule(bot, message, schedules, ADMIN_GROUP) -> None:
     if message.chat.id == ADMIN_GROUP:
         schedule_info = f"<blockquote><b>Current Schedule:</b></blockquote>\n"
         for key, value in schedules.items():
             if key == "poll" and "end" in value:
-                schedule_info += f"<b>{key.capitalize()}:</b> {value['day']}, {value['time']}\n<b>End:</b> {value['end']['day']}, {value['end']['time']}\n"
+                schedule_info += f"<b>{key.capitalize()}:</b> {value['day'].capitalize()}, {value['time']}\n<b>Poll End:</b> {value['end']['day'].capitalize()}, {value['end']['time']}\n"
             else:
-                schedule_info += f"<b>{key.capitalize()}:</b> {value['day']}, {value['time']}\n"
+                schedule_info += f"<b>{key.capitalize()}:</b> {value['day'].capitalize()}, {value['time']}\n"
         bot.send_message(message.chat.id, schedule_info, parse_mode='HTML')
+
+def is_valid_time(time_str: str) -> bool:
+    try:
+        datetime.datetime.strptime(time_str, "%H:%M")
+        return True
+    except ValueError:
+        return False
