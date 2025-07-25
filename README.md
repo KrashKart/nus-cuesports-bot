@@ -16,3 +16,4 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [ ] Try to automate message generation
 - [ ] Make bot accept more than 1 admin chat id
 - [ ] Clean and refactor code
+- [ ] Create sync for local json files
