@@ -1,6 +1,7 @@
 ---
-  layout: home
+  layout: default
   title: NUS Cuesports Bot
+  permalink: home
 ---
 
 # NUS Cuesports Bot
