@@ -6,14 +6,14 @@
 
 [Home](index.md)
 
-# Features :pushpin:
+# Features 📌
 The main features are:
 * [Super User Management](#super-user-management)
 * [Group Management](#group-management)
 * [Session Management](#session-management)
 * [Message automation](#message-automation)
 
-> [!NOTE]
+> :information_source:
 > You can view the command format and descriptions in [Commands](commands.md)
 
 ## Super User Management
@@ -28,7 +28,7 @@ The telebot deals with 4 (types) of groups: ADMIN, RECRE and SPAM TEST.
 * The SPAM TEST group is for large-volume testing and aims to reduce spam in the ADMIN group.
 * The LOGGING group contains logs raised by the bot during operation.
 
-> [!IMPORTANT]
+> :warning:
 > The SPAM TEST group will be deprecated soon. Do transfer testing/logging to the ADMIN or LOGGING group, or create your own extension if possible.
 
 ## Session Management
