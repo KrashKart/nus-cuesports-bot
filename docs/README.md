@@ -1,3 +1,9 @@
+---
+  layout: default.md
+  title: "NUS Cuesports Bot"
+  permalink: "readme"
+---
+
 # NUS Cuesports TeleBot
 Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used to manage training polls, notifications and payments.
 
