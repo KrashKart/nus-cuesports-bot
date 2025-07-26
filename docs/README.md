@@ -23,6 +23,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - [X] Segregate active and available sessions
 - [X] Shift code to commands folder and modularize
 - [ ] Update help command (command list)
+- [ ] Fix cold start problem
 
 :book: Documentation
 - [X] Set up Github pages and workflow (Github Actions)
