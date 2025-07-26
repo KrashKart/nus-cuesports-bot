@@ -249,18 +249,14 @@ def main():
         delete_session(bot, message, messages, ADMIN_GROUP)
 
     @bot.message_handler(commands=['set_recre'])
-    def set_recre_group_handler(message: Message):
-        result = set_recre_group(bot, message, super_users, groups, config)
-        if result:
-            nonlocal RECRE_GROUP
-            RECRE_GROUP = groups["RECRE_GROUP"]["id"]
+    def set_recre_handler(message: Message):
+        set_recre_group(bot, message, super_users, groups, config)
+        bot.send_message(message.chat.id, "Remember to restart the bot to effect changes...")
 
     @bot.message_handler(commands=['set_admin'])
     def set_admin_group_handler(message: Message):
-        result = set_admin_group(bot, message, super_users, groups, config)
-        if result:
-            nonlocal ADMIN_GROUP
-            ADMIN_GROUP = groups["ADMIN_GROUP"]["id"]
+        set_admin_group(bot, message, super_users, groups, config)
+        bot.send_message(message.chat.id, "Remember to restart the bot to effect changes...")
     
     @bot.message_handler(commands=['verify_groups'])
     def verify_group_handler(message: Message):

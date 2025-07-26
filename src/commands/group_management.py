@@ -8,7 +8,7 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-def _set_group_wrapper(set_function: Callable[..., None]) -> Callable[..., bool]:
+def _set_group_wrapper(set_function: Callable[..., None]) -> Callable[..., None]:
     def new_set_function(bot: TeleBot, message: Message, super_users: list, groups: dict, config: dict) -> bool:
         user_id = message.from_user.id
         if any(user["id"] == user_id for user in super_users):
@@ -18,11 +18,8 @@ def _set_group_wrapper(set_function: Callable[..., None]) -> Callable[..., bool]
             except Exception as e:
                 send_log_message(bot, f"Error in {set_function.__name__}: {e}")
                 logger.error(f"Error in {set_function.__name__}: {e}")
-            finally:
-                return False
         else:
             bot.send_message(message.chat.id, "You are not authorized to use this command.")
-            return False
     
     return new_set_function
 
