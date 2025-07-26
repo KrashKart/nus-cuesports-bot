@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def _super_user_wrapper(function: Callable[..., None]) -> Callable[..., None]:
     def new_function(bot: TeleBot, message: Message, super_users: list, groups: dict, config: dict) -> None:
         try:
-            if message.chat.id in [groups["ADMIN_GROUP"]["id"], groups["SPAM_TEST_GROUP"]["id"]]:
+            if message.chat.id == groups["ADMIN_GROUP"]["id"]:
                 function(bot, message, super_users, groups, config)
             else:
                 bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
