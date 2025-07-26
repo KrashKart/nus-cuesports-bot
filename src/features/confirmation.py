@@ -3,14 +3,8 @@ import logging
 import sys
 import os
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
-from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
-
-# For some reason mine dont work
-try:
-    from utils.tg_logging import get_logger
-except:
-    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "utils"))
-    from tg_logging import send_log_message
+from utils.gcs_utils import save_json_file_to_gcs
+from utils.tg_logging import send_log_message
 
 logger = logging.getLogger(__name__)
 TRAINING_PRICE = 8

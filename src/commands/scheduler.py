@@ -3,7 +3,7 @@ from google.api_core.exceptions import NotFound
 from utils.gcs_utils import save_json_file_to_gcs
 from utils.datetime_utils import is_valid_day, is_valid_time, DAYS
 from dotenv import load_dotenv
-import logging, os, datetime
+import logging, os
 
 from telebot import TeleBot
 from telebot.types import Message
@@ -57,7 +57,7 @@ def delete_scheduler_job(job_name: str) -> None:
         print(f'Error deleting job: {e}')
         raise
 
-def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dict, ADMIN_GROUP: int) -> None:
+def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dict, ADMIN_GROUP: str | int) -> None:
     if message.chat.id == ADMIN_GROUP:
         try:
             command_params = message.text.split()
