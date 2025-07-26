@@ -1,5 +1,5 @@
 ---
-  layout: default.md
+  layout: default
   title: "NUS Cuesports Bot"
   permalink: "readme"
 ---
