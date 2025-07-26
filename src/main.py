@@ -9,9 +9,10 @@ import sys
 from features.polls import end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
 
-from commands.group_management import set_admin_group, set_recre_group, set_spam_test_group
+from commands.group_management import set_admin_group, set_recre_group
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
 from commands.super_user import get_user_id, get_group_id, register_super_user, unregister_super_user, is_super_user, list_super_users
+from commands.session_management import view_sessions, update_sessions, add_session, delete_session
 
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
@@ -79,11 +80,6 @@ def main():
 
     ADMIN_GROUP = groups.get("ADMIN_GROUP", {}).get("id", None)
     RECRE_GROUP = groups.get("RECRE_GROUP", {}).get("id", None)
-    SPAM_TEST_GROUP = groups.get("SPAM_TEST_GROUP", {}).get("id", None)
-
-    assert ADMIN_GROUP != None, "ADMIN_GROUP is None"
-    assert RECRE_GROUP != None, "RECRE_GROUP is None"
-    assert SPAM_TEST_GROUP != None, "SPAM_TEST_GROUP is None"
 
     bot = create_bot(api_key)
 
@@ -155,7 +151,7 @@ def main():
     @bot.message_handler(commands=['start'])
     def start_command(message: Message):
         bot.send_message(message.chat.id, "Thank you for starting the bot, this bot will be sending you the confirmation messages for the training sessions.")
-        if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+        if message.chat.id == ADMIN_GROUP:
             bot.send_message(message.chat.id, "Starting bot...")
             logger.info(f"Bot started by admin: {message.chat.id}")
         if message.chat.id == super_users[0]["id"]:
@@ -163,7 +159,7 @@ def main():
 
     @bot.message_handler(commands=['help', 'command_list'])
     def help_command(message: Message):
-        if message.chat.id in [ADMIN_GROUP, SPAM_TEST_GROUP]:
+        if message.chat.id == ADMIN_GROUP:
             bot.send_message(
                 message.chat.id,
                 text=(
@@ -210,30 +206,25 @@ def main():
     def update_schedule_handler(message: Message):
         update_schedule(bot, message, schedules, config, ADMIN_GROUP)
 
-    @bot.message_handler(commands=['update_session'])
-    def update_session(message: Message):
-        if message.chat.id != ADMIN_GROUP:
-            return
-        try:
-            command_params = message.text.split()
-            all_options = messages.get("Poll", {}).get("all_options", [])
-            all_option_format = "\n".join([f"{_i + 1}: {_option}" for _i, _option in enumerate(all_options)])
-            if len(command_params) == 1:
-                bot.send_message(message.chat.id,
-                                 text = f"usage: /update_session <Option 1> <Option 2> <Option 3> (Numeric ascending Order)\n{all_option_format}")
-            else:
-                new_option = [all_options[int(_i)-1] for _i in command_params[1:]]
-                messages["Poll"]["Options"] = new_option
-                save_json_file_to_gcs("messages.json", messages)
-                new_option_format = '\n'.join(new_option)
-                bot.send_message(message.chat.id, f"Session updated:\n{new_option_format}")
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error updating sessions: {e}")
-            logger.error(f"Error updating schedule: {e}")
-
     @bot.message_handler(commands=['current_schedule'])
     def send_current_schedule_handler(message: Message):
         send_current_schedule(bot, message, schedules, ADMIN_GROUP)
+
+    @bot.message_handler(commands=['view_sessions'])
+    def view_sessions_handler(message: Message):
+        view_sessions(bot, message, messages, ADMIN_GROUP)
+
+    @bot.message_handler(commands=['update_sessions'])
+    def update_sessions_handler(message: Message):
+        update_sessions(bot, message, messages, ADMIN_GROUP)
+
+    @bot.message_handler(commands=['add_session'])
+    def update_session_handler(message: Message):
+        add_session(bot, message, messages, ADMIN_GROUP)
+
+    @bot.message_handler(commands=['delete_session'])
+    def delete_session_handler(message: Message):
+        delete_session(bot, message, messages, ADMIN_GROUP)
 
     @bot.message_handler(commands=['set_recre'])
     def set_recre_group_handler(message: Message):
@@ -248,13 +239,6 @@ def main():
         if result:
             nonlocal ADMIN_GROUP
             ADMIN_GROUP = groups["ADMIN_GROUP"]["id"]
-
-    @bot.message_handler(commands=['set_spam_test'])
-    def set_spam_test_group_handler(message: Message):
-        result = set_spam_test_group(bot, message, super_users, groups, config)
-        if result:
-            nonlocal SPAM_TEST_GROUP
-            SPAM_TEST_GROUP = groups["SPAM_TEST_GROUP"]["id"]
 
     @bot.message_handler(commands=['restart'])
     def restart(message: Message):
