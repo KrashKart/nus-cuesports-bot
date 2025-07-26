@@ -1,6 +1,6 @@
 ---
   layout: default
-  title: "NUS Cuesports Bot"
+  title: NUS Cuesports Bot Readme
   permalink: "readme"
 ---
 
