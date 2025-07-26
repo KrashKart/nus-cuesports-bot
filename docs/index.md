@@ -1,5 +1,5 @@
 ---
-  layout: home.md
+  layout: home
   title: "NUS Cuesports Bot"
 ---
 
