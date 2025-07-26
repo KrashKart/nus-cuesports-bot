@@ -10,6 +10,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [X] Add id checking functionality (user id, group id)
 - [X] Shift code to commands folder and modularize
 - [ ] Update help command (command list)
+- [X] Enable live session updates
 
 💡Trivial
 - [ ] Change contact details for messages
