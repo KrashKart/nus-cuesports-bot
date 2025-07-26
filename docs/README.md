@@ -1,7 +1,7 @@
 ---
   layout: default
-  title: NUS Cuesports Bot Readme
-  permalink: "readme"
+  title: NUS Cuesports Bot README
+  permalink: readme
 ---
 
 # NUS Cuesports TeleBot
@@ -13,14 +13,27 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - [X] Register/deregister super user
   - [X] View super users
   - [X] Check if user is super user
-- [X] Add id checking functionality (user id, group id)
+  - [X] Add id checking functionality (user id, group id)
+- [X] Add session update functionality
+  - [X] Update sessions
+  - [X] Add/Delete sessions
+  - [X] View sessions
+  - [X] Segregate active and available sessions
 - [X] Shift code to commands folder and modularize
 - [ ] Update help command (command list)
-- [X] Enable live session updates
+
+:book: Documentation
+- [X] Set up Github pages and workflow (Github Actions)
+- [X] Index page (landing page)
+- [X] Format README.md
+- [X] Features page
+- [ ] Development page
+- [ ] Commands page
 
 💡Trivial
-- [ ] Change contact details for messages
+- [X] Change contact details for messages
+- [ ] Update Google Form link if necessary
 - [ ] Try to automate message generation
-- [ ] Make bot accept more than 1 admin chat id
+- [ ] Make bot accept more than 1 admin chat id (if possible)
 - [ ] Clean and refactor code
 - [ ] Create sync for local json files
