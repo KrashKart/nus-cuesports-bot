@@ -1,6 +1,7 @@
 from google.cloud import scheduler_v1
 from google.api_core.exceptions import NotFound
 from utils.gcs_utils import save_json_file_to_gcs
+from utils.datetime_utils import is_valid_day, is_valid_time, DAYS
 from dotenv import load_dotenv
 import logging, os, datetime
 
@@ -13,14 +14,6 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 LOCATION_ID = os.getenv("LOCATION_ID")
-DAYS = {"sunday": "0",
-        "monday": "1",
-        "tuesday": "2",
-        "wednesday": "3",
-        "thursday": "4",
-        "friday": "5",
-        "saturday": "6"
-        }
 
 def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
@@ -76,7 +69,7 @@ def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dic
             if schedule_type not in ["prepoll", "poll", "end"]:
                 bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
                 return
-            elif day.lower() not in DAYS.keys():
+            elif not is_valid_day(day):
                 bot.send_message(message.chat.id, "Invalid day. Use 'sunday', 'monday', etc (Lower/Upper case both accepted).")
                 return
             elif not is_valid_time(time):
@@ -111,11 +104,4 @@ def send_current_schedule(bot: TeleBot, message: Message, schedules: dict, ADMIN
             else:
                 schedule_info += f"<b>{key.capitalize()}:</b> {value['day'].capitalize()}, {value['time']}\n"
         bot.send_message(message.chat.id, schedule_info, parse_mode='HTML')
-
-def is_valid_time(time_str: str) -> bool:
-    try:
-        datetime.datetime.strptime(time_str, "%H:%M")
-        return True
-    except ValueError:
-        return False
-    
+        
