@@ -18,11 +18,7 @@ from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
 from telebot.types import Message
 
-# try:
 from utils.tg_logging import send_log_message
-# except ImportError:
-#     sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "utils"))
-#     from tg_logging import send_log_message
 
 singapore_tz = pytz.timezone('Asia/Singapore')
 
@@ -129,7 +125,7 @@ def main():
             polls.clear()
             message_ids.clear()
             payments.clear()
-            start_poll_announcement(bot, messages, polls, RECRE_GROUP, ADMIN_GROUP, message_ids, schedules["poll"]["end"], payments)
+            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments)
             save_data_to_gcs("polls.json", polls)
             save_data_to_gcs("message_ids.json", message_ids)
             logger.info(f"Poll started in group {RECRE_GROUP}")
@@ -175,14 +171,20 @@ def main():
     @bot.message_handler(commands=['prepoll'])
     def start_prepoll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            formatted_slots = " /n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
+            formatted_slots = " \n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
             prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
             bot.send_message(RECRE_GROUP, prepoll_message, parse_mode='HTML')
             logger.info(f"Prepoll announcement sent to: {RECRE_GROUP}")
 
     @bot.message_handler(commands=['poll'])
     def handle_start_poll_announcement(message: Message):
-        start_poll_announcement(bot, messages, polls, groups, message_ids, schedules["poll"]["end"])
+        if message.chat.id == ADMIN_GROUP:
+            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments)
+    
+    @bot.message_handler(commands=['end_poll'])
+    def handle_end_poll(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            manual_end_poll(bot, polls, RECRE_GROUP, payments)
 
     @bot.callback_query_handler(func=lambda call: True)
     def handle_callback_query(call):
@@ -191,6 +193,26 @@ def main():
             callback_query(call, bot, messages, polls, message_ids, group_id)
         else:
             confirm_payment_query(call, bot, payments, group_id)
+    
+    @bot.message_handler(commands=['test_prepoll'])
+    def handle_start_test_prepoll_announcement(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            formatted_slots = "\n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]]).strip()
+            prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
+            bot.send_message(ADMIN_GROUP, prepoll_message, parse_mode='HTML')
+            send_log_message(bot, f"Test prepoll announcement sent to: {ADMIN_GROUP}")
+            logger.info(f"Test prepoll announcement sent to: {ADMIN_GROUP}")
+    
+    @bot.message_handler(commands=['test_poll'])
+    def handle_start_test_poll_announcement(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, payments)
+            send_log_message(bot, f"Test poll announcement sent to: {ADMIN_GROUP}")
+    
+    @bot.message_handler(commands=['test_end_poll'])
+    def handle_test_end_poll(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            manual_end_poll(bot, polls, ADMIN_GROUP, payments)
 
     @bot.message_handler(commands=["confirmation"])
     def handle_confirmation_message(message: Message):
@@ -239,18 +261,17 @@ def main():
         if result:
             nonlocal ADMIN_GROUP
             ADMIN_GROUP = groups["ADMIN_GROUP"]["id"]
+    
+    @bot.message_handler(commands=['verify_groups'])
+    def verify_group_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            bot.send_message(chat_id=message.chat.id, text = f"Admin Group: {ADMIN_GROUP}\nRecre Group: {RECRE_GROUP}")
 
     @bot.message_handler(commands=['restart'])
     def restart(message: Message):
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(message.chat.id, "Restarting the bot...")
             restart_bot()
-
-    @bot.message_handler(commands=['end_poll'])
-    def end_poll_handler(message: Message):
-        user_id = message.from_user.id
-        if any(user["id"] == user_id for user in super_users):
-            manual_end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages)
 
     @bot.message_handler(commands=['get_user_id'])
     def get_user_id_handler(message: Message):

@@ -1,26 +1,17 @@
-from telebot import types
 import telebot
 import logging
-import schedule
 import pytz
-import sys
-import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from features.confirmation import send_confirmation_message
 from utils.gcs_utils import save_json_file_to_gcs, load_json_file_from_gcs
-
-# For some reason mine dont work
-try:
-    from utils.tg_logging import get_logger
-except:
-    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "utils"))
-    from tg_logging import send_log_message
+from utils.tg_logging import send_log_message
+from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
+from telebot import TeleBot
 
 logger = logging.getLogger(__name__)
-poll_message = ""
 singapore_tz = pytz.timezone("Asia/Singapore")
 
-def has_started_bot(bot, user_id, group_id):
+def has_started_bot(bot: TeleBot, user_id: str | int, group_id: str | int) -> bool:
     try:
         numeric_user_id = int(user_id.split('-')[-1])
         logger.info(f"Checking if user {user_id} has started bot in group {group_id}")
@@ -31,19 +22,25 @@ def has_started_bot(bot, user_id, group_id):
         logger.error(f"Error checking user status for user {user_id} in group {group_id}: {e}")
         return False
 
-def end_poll(bot, polls, message_ids, chat_id, admin_id, payments, messages):
+def clear_polls(polls: dict) -> None:
+    polls.clear()
+
+def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict) -> None:
     poll_id = next(iter(polls))
     message_id = polls[poll_id]["message_id"]
     poll_message = load_json_file_from_gcs("poll_message.json")
     try:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("Poll ended", callback_data="poll_ended"))
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("Poll ended", callback_data="poll_ended"))
         try:
             bot.edit_message_text(chat_id=chat_id,
                                   message_id=message_id,
                                   text=poll_message,
                                   reply_markup=markup,
                                   parse_mode='HTML')
+            del polls[poll_id]
+            logger.info(f"Poll ended in group {chat_id} with id {message_id}")
+            send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}")
         except Exception as e:
             print(e)
 
@@ -64,24 +61,26 @@ def end_poll(bot, polls, message_ids, chat_id, admin_id, payments, messages):
         else:
             logger.error(f"Unhandled error: {e}")
 
-def manual_end_poll(bot, polls, message_ids, chat_id, admin_id, payments, messages):
+def manual_end_poll(bot: TeleBot, polls: dict, chat_id: str | int, payments: dict) -> None:
     logger.info(f"Payments before manual end poll: {payments}")
     poll_id = next(iter(polls))
     message_id = polls[poll_id]["message_id"]
     poll_message = load_json_file_from_gcs("poll_message.json")
     try:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("Poll ended" , callback_data="poll_ended"))
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("Poll ended" , callback_data="poll_ended"))
         try:
             bot.edit_message_text(chat_id=chat_id,
                                   message_id=message_id,
                                   text=poll_message,
                                   reply_markup=markup,
                                   parse_mode='HTML')
-        except Exception as e:
-            print(e)
+            del polls[poll_id]
+            logger.info(f"Poll ended in group {chat_id} with id {message_id}")
+            send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}")
 
-        logger.info(f"Successfully ended the poll in group {chat_id}")
+        except Exception as e:
+            logger.error(e)
 
     except telebot.apihelper.ApiTelegramException as e:
         logger.error(f"Error ending poll for group {chat_id}: {e}")
@@ -96,28 +95,29 @@ def manual_end_poll(bot, polls, message_ids, chat_id, admin_id, payments, messag
         else:
             logger.error(f"Unhandled error: {e}")
 
-def start_poll_announcement(bot, messages, polls, group_id, admin_id, message_ids, end_schedule, payments):
-    global poll_message
-
+def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict) -> None:
     question = messages["Poll"]["Question"]
+    body = messages["Poll"]["Body"]
     options = messages["Poll"]["Options"]
     poll_id = f"{group_id}_{int(datetime.now().timestamp())}"  # Create a unique poll_id
     polls[poll_id] = {option: [] for option in options}
+
     for option in options:
         message_ids[option] = []
 
-    markup = types.InlineKeyboardMarkup()
+    markup = InlineKeyboardMarkup()
     for option in options:
-        markup.add(types.InlineKeyboardButton(option, callback_data=f"{poll_id}:{option}"))
+        markup.add(InlineKeyboardButton(option, callback_data=f"{poll_id}:{option}"))
 
     poll_message = f"<blockquote><b>{question}</b></blockquote>"
-    poll_message += "Hi everyone! Here’s the poll for next week’s training sessions. Do note that they are at Aspire Recreational Centre (HarbourFront Centre)! There is a maximum of 36 pax for the session. Each session is $8. Please make sure you have a confirmation message from the TDs before coming!\n\nClick here to start the bot: https://t.me/nuscuesportsbot\n\n"
+    poll_message += body
     for opt in options:
         poll_message += f"<blockquote><b>{opt}</b> (👤 0)</blockquote>"
         poll_message += "No votes yet\n\n"
 
     sent_message = bot.send_message(group_id, poll_message, reply_markup=markup, parse_mode='HTML')
     polls[poll_id]["message_id"] = sent_message.message_id
+    send_log_message(bot, f"Poll started in groupo {group_id} with id {sent_message.message_id}")
     logger.info(f"Poll started in group: {group_id}")
 
     # Save poll data to Google Cloud Storage
@@ -126,11 +126,10 @@ def start_poll_announcement(bot, messages, polls, group_id, admin_id, message_id
     save_json_file_to_gcs("payments.json", payments)
     save_json_file_to_gcs("poll_message.json", poll_message)
 
-def callback_query(call, bot, messages, polls, message_ids, group_id):
+def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: dict, message_ids: dict, group_id: str | int) -> None:
     if call.data == "poll_ended":
         bot.answer_callback_query(call.id, "The poll has ended. Please wait for next week's poll to be released.", show_alert=True)
         return
-    poll_message = load_json_file_from_gcs("poll_message.json")
 
     poll_id, option = call.data.split(":")
     user = call.from_user
@@ -152,8 +151,11 @@ def callback_query(call, bot, messages, polls, message_ids, group_id):
         polls[poll_id][option].append(user_name)
         message_ids[option].append(user_id_lst)
 
-    poll_message = f"<blockquote><b>{messages['Poll']['Question']}</b></blockquote>\n\n"
-    poll_message += "Hi everyone! Here’s the poll for next week’s training sessions. Do note that they are from 7PM-9PM at Aspire Recreational Centre (HarbourFront Centre)! There is a maximum of 36 pax for the session. Each session is $8. Please make sure you have a confirmation message from the TDs before coming!\n\nClick here to start the bot: https://t.me/nuscuesportsbot\n\n"
+    question = messages["Poll"]["Question"]
+    body = messages["Poll"]["Body"]
+    poll_message = f"<blockquote><b>{question}</b></blockquote>\n\n"
+    poll_message += body
+
     for opt, names in polls[poll_id].items():
         if opt == "message_id":
             continue
