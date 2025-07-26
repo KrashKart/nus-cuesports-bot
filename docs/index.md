@@ -1,6 +1,6 @@
 ---
   layout: home
-  title: "NUS Cuesports Bot"
+  title: NUS Cuesports Bot
 ---
 
 # NUS Cuesports Bot
