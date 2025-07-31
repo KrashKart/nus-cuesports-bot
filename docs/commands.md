@@ -27,7 +27,7 @@
    * [view_sessions](#view_sessions)
    * [update_sessions](#update_sessions)
    * [add_sessions](#add_sessions)
-- [delete_session](#delete_session)
+   * [delete_session](#delete_session)
 - [Group Management](#group-management)
    * [verify_groups](#verify_groups)
    * [set_admin](#set_admin)
@@ -130,7 +130,7 @@ Add a new session and declare it *available*. Days must be entered in full and c
 
 Also see the [warning about session numbers](#session-management).
 
-## delete_session
+### delete_session
 Usage: ```/delete_session <session number>```
 
 Deletes a session based on the selected session number.
