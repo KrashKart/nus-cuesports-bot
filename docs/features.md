@@ -8,18 +8,26 @@
 
 # Features 📌
 The main features are:
-* [Super User Management](#super-user-management)
-* [Group Management](#group-management)
+* [Poll and Confirmation Automation](#poll-and-confirmation-automation)
+* [Scheduler Management](#scheduler-management)
 * [Session Management](#session-management)
-* [Message automation](#message-automation)
+* [Group Management](#group-management)
+* [Super User Management](#super-user-management)
 
 > ℹ️ TIP
 > You can view the command format and descriptions in [Commands](commands.md)
 
-## Super User Management
-Super users are able to set group roles (see [Group Management](#group-management)), which are vital to control command permissions, and view group and user IDs.
+## Poll and Confirmation Automation
+The telebot will send prepoll, poll, end poll and confirmation messages and update poll headcounts automatically. This is the main functionality of the bot to manage polled members and sessions.
 
-Super users can be registered and unregistered in groups where super user operations are permitted. For now, only the ADMIN and SPAM TEST groups allow access to the super user commands.
+## Scheduler Management
+The bot also allows in-house viewing of the scheduled prepoll, poll and end poll functionalities. You can also change the scheduler date and time from the bot itself too.
+
+## Session Management
+The telebot also allows handling of the cuesports sessions, allowing temporary changes week by week. 
+
+The bot stores two types of sessions: active, and available. Active sessions are sessions that will be displayed to the RECRE group, but available sessions will not.
+However, the bot will still store available sessions that can be declared active at any moment. Likewise, any active session can be deactivated and declared available at any time.
 
 ## Group Management
 The telebot deals with 4 (types) of groups: ADMIN, RECRE and SPAM TEST.
@@ -31,11 +39,7 @@ The telebot deals with 4 (types) of groups: ADMIN, RECRE and SPAM TEST.
 > ⚠️ IMPORTANT
 > The SPAM TEST group will be deprecated soon. Do transfer testing/logging to the ADMIN or LOGGING group, or create your own extension if possible.
 
-## Session Management
-The telebot also allows handling of the cuesports sessions, allowing temporary changes week by week. 
+## Super User Management
+Super users are able to set group roles (see [Group Management](#group-management)), which are vital to control command permissions, and view group and user IDs.
 
-The bot stores two types of sessions: active, and available. Active sessions are sessions that will be displayed to the RECRE group, but available sessions will not.
-However, the bot will still store available sessions that can be declared active at any moment. Likewise, any active session can be deactivated and declared available at any time.
-
-## Message Automation
-The telebot will send Pre-Poll, Poll, End-Poll and Confirmation messages and update poll headcounts automatically.
+Super users can be registered and unregistered in groups where super user operations are permitted. For now, only the ADMIN and SPAM TEST groups allow access to the super user commands.
