@@ -6,7 +6,7 @@ import re
 import pytz
 import sys
 
-from features.polls import end_poll, start_poll_announcement, callback_query, manual_end_poll
+from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
 
 from commands.group_management import set_admin_group, set_recre_group
@@ -95,6 +95,11 @@ def main():
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
 
+    #################################################
+    #
+    #  Webhook and Schedule functions
+    #
+    #################################################
     @app.route('/webhook', methods=['POST'])
     def webhook():
         if request.headers.get('content-type') == 'application/json':
@@ -108,12 +113,7 @@ def main():
     @app.route('/prepoll', methods=['POST'])
     def scheduled_prepoll():
         try:
-            logger.info(messages["Prepoll Announcement"])
-            formatted_slots = " /n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
-            prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
-            bot.send_message(RECRE_GROUP, prepoll_message, parse_mode='HTML')
-            logger.info(f"Prepoll announcement sent to: {RECRE_GROUP}")
-            send_log_message(bot, f"Prepoll started in group {RECRE_GROUP}")
+            send_prepoll(bot, messages, RECRE_GROUP)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             logger.error(f"Error sending prepoll announcement: {e}")
@@ -128,8 +128,6 @@ def main():
             start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments)
             save_data_to_gcs("polls.json", polls)
             save_data_to_gcs("message_ids.json", message_ids)
-            logger.info(f"Poll started in group {RECRE_GROUP}")
-            send_log_message(bot, f"Poll started in group {RECRE_GROUP}")
             return jsonify({"status": "success"}), 200
         except Exception as e:
             logger.error(f"Error starting poll: {e}")
@@ -143,7 +141,12 @@ def main():
         except Exception as e:
             logger.error(f"Error ending poll: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
-        
+
+    #################################################
+    #
+    #  Bot Operations
+    #
+    ################################################# 
     @bot.message_handler(commands=['start'])
     def start_command(message: Message):
         bot.send_message(message.chat.id, "Thank you for starting the bot, this bot will be sending you the confirmation messages for the training sessions.")
@@ -152,6 +155,13 @@ def main():
             logger.info(f"Bot started by admin: {message.chat.id}")
         if message.chat.id == super_users[0]["id"]:
             bot.send_message(message.chat.id, f"Admin Group: {ADMIN_GROUP['name']}({ADMIN_GROUP['id']})")
+    
+    @bot.message_handler(commands=['restart'])
+    def restart(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            send_log_message(bot, f"Bot restart called on {message.chat.id}")
+            restart_bot()
+            send_log_message(bot, "Bot restarted")
 
     @bot.message_handler(commands=['help', 'command_list'])
     def help_command(message: Message):
@@ -168,13 +178,15 @@ def main():
                 parse_mode='HTML'
             )
 
+    #################################################
+    #
+    #  Recre poll functions (sends to RECRE_GROUP)
+    #
+    ################################################# 
     @bot.message_handler(commands=['prepoll'])
     def start_prepoll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            formatted_slots = " \n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
-            prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
-            bot.send_message(RECRE_GROUP, prepoll_message, parse_mode='HTML')
-            logger.info(f"Prepoll announcement sent to: {RECRE_GROUP}")
+            send_prepoll(bot, messages, RECRE_GROUP)
 
     @bot.message_handler(commands=['poll'])
     def handle_start_poll_announcement(message: Message):
@@ -194,26 +206,11 @@ def main():
         else:
             confirm_payment_query(call, bot, payments, group_id)
     
-    @bot.message_handler(commands=['test_prepoll'])
-    def handle_start_test_prepoll_announcement(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            formatted_slots = "\n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]]).strip()
-            prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
-            bot.send_message(ADMIN_GROUP, prepoll_message, parse_mode='HTML')
-            send_log_message(bot, f"Test prepoll announcement sent to: {ADMIN_GROUP}")
-            logger.info(f"Test prepoll announcement sent to: {ADMIN_GROUP}")
-    
-    @bot.message_handler(commands=['test_poll'])
-    def handle_start_test_poll_announcement(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, payments)
-            send_log_message(bot, f"Test poll announcement sent to: {ADMIN_GROUP}")
-    
-    @bot.message_handler(commands=['test_end_poll'])
-    def handle_test_end_poll(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            manual_end_poll(bot, polls, ADMIN_GROUP, payments)
-
+    #################################################
+    #
+    #  Recre Confirmation Functions (Actual)
+    #
+    #################################################
     @bot.message_handler(commands=["confirmation"])
     def handle_confirmation_message(message: Message):
         if message.chat.id == ADMIN_GROUP:
@@ -223,7 +220,32 @@ def main():
     def handle_unconfirm_message(message: Message):
         if message.chat.id == ADMIN_GROUP:
             unconfirm_payment(bot, message, payments, ADMIN_GROUP)
+    
+    #################################################
+    #
+    #  Test poll functions (sends to ADMIN_GROUP)
+    #
+    #################################################
+    @bot.message_handler(commands=['test_prepoll'])
+    def handle_start_test_prepoll_announcement(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            send_prepoll(bot, messages, ADMIN_GROUP)
+    
+    @bot.message_handler(commands=['test_poll'])
+    def handle_start_test_poll_announcement(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, {})
+    
+    @bot.message_handler(commands=['test_end_poll'])
+    def handle_test_end_poll(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            manual_end_poll(bot, polls, ADMIN_GROUP, {})
 
+    #################################################
+    #
+    #  Scheduling Management
+    #
+    #################################################
     @bot.message_handler(commands=['update_schedule'])
     def update_schedule_handler(message: Message):
         update_schedule(bot, message, schedules, config, ADMIN_GROUP)
@@ -232,6 +254,12 @@ def main():
     def send_current_schedule_handler(message: Message):
         send_current_schedule(bot, message, schedules, ADMIN_GROUP)
 
+    
+    #################################################
+    #
+    #  Session Management
+    #
+    #################################################
     @bot.message_handler(commands=['view_sessions'])
     def view_sessions_handler(message: Message):
         view_sessions(bot, message, messages, ADMIN_GROUP)
@@ -248,6 +276,11 @@ def main():
     def delete_session_handler(message: Message):
         delete_session(bot, message, messages, ADMIN_GROUP)
 
+    #################################################
+    #
+    #  Group Management Functions
+    #
+    #################################################
     @bot.message_handler(commands=['set_recre'])
     def set_recre_handler(message: Message):
         set_recre_group(bot, message, super_users, groups, config)
@@ -263,12 +296,6 @@ def main():
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(chat_id=message.chat.id, text = f"Admin Group: {ADMIN_GROUP}\nRecre Group: {RECRE_GROUP}")
 
-    @bot.message_handler(commands=['restart'])
-    def restart(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            bot.send_message(message.chat.id, "Restarting the bot...")
-            restart_bot()
-
     @bot.message_handler(commands=['get_user_id'])
     def get_user_id_handler(message: Message):
         get_user_id(bot, message, super_users, groups, config)
@@ -277,6 +304,11 @@ def main():
     def get_group_id_handler(message: Message):
         get_group_id(bot, message, super_users, groups, config)
 
+    #################################################
+    #
+    #  Super User Management
+    #
+    #################################################
     @bot.message_handler(commands=['register_super_user'])
     def register_super_user_handler(message: Message):
         register_super_user(bot, message, super_users, groups, config)
