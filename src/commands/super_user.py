@@ -26,10 +26,6 @@ def get_user_id(bot: TeleBot, message: Message, super_users: list, groups: dict,
     bot.send_message(message.chat.id, f"Your user id is {message.from_user.id}")
 
 @_super_user_wrapper
-def get_group_id(bot: TeleBot, message: Message, super_users: list, groups: dict, config: dict) -> None:
-    bot.send_message(message.chat.id, f"The group id is {message.chat.id}")
-
-@_super_user_wrapper
 def register_super_user(bot: TeleBot, message: Message, super_users: list, groups: dict, config: dict) -> None:
     user_id = message.from_user.id
     params = message.text.strip().split()
