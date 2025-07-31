@@ -1,7 +1,5 @@
 import telebot
 import logging
-import sys
-import os
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from utils.gcs_utils import save_json_file_to_gcs
 from utils.tg_logging import send_log_message
@@ -11,7 +9,7 @@ TRAINING_PRICE = 8
 MAX_OCCUPANCY = 36
 
 
-def send_confirmation_message(bot, ADMIN_GROUP, message_ids, payments, messages):
+def send_confirmation_message(bot, admin_group, message_ids, payments, messages):
 
     # Find first N member to fill up max Occupancy
     to_be_confirmed = __find_n_occupancy(message_ids)
@@ -45,9 +43,11 @@ def send_confirmation_message(bot, ADMIN_GROUP, message_ids, payments, messages)
             logger.info(f"User have not started the bot: Unable to initiate conversation with user")
             send_log_message(bot, f"Unable to send confirmation: {_fullname_id}")
 
+    send_log_message(bot, f"Sent confirmations to all poll members")
+
     if len(payments) != 0:
         markup, payment_message = __convert_payment_message(payments)
-        bot.send_message(ADMIN_GROUP, payment_message, reply_markup=markup, parse_mode='HTML')
+        bot.send_message(admin_group, payment_message, reply_markup=markup, parse_mode='HTML')
 
 def confirm_payment_query(call, bot, payments, group_id):
     user_id = call.data

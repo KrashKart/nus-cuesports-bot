@@ -25,6 +25,13 @@ def has_started_bot(bot: TeleBot, user_id: str | int, group_id: str | int) -> bo
 def clear_polls(polls: dict) -> None:
     polls.clear()
 
+def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int) -> None:
+    formatted_slots = "\n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
+    prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
+    bot.send_message(group_id, prepoll_message, parse_mode='HTML')
+    logger.info(f"Prepoll announcement sent to: {group_id}")
+    send_log_message(bot, f"Prepoll started in group {group_id}")
+
 def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict) -> None:
     poll_id = next(iter(polls))
     message_id = polls[poll_id]["message_id"]
@@ -43,8 +50,6 @@ def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, a
             send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}")
         except Exception as e:
             print(e)
-
-        logger.info(f"Successfully ended the poll in group {chat_id}")
 
         send_confirmation_message(bot, admin_id, message_ids, payments, messages)
 
@@ -117,7 +122,7 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
 
     sent_message = bot.send_message(group_id, poll_message, reply_markup=markup, parse_mode='HTML')
     polls[poll_id]["message_id"] = sent_message.message_id
-    send_log_message(bot, f"Poll started in groupo {group_id} with id {sent_message.message_id}")
+    send_log_message(bot, f"Poll started in group {group_id} with id {sent_message.message_id}")
     logger.info(f"Poll started in group: {group_id}")
 
     # Save poll data to Google Cloud Storage
