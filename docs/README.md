@@ -31,11 +31,11 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [X] Format README.md
 - [X] Features page
 - [ ] Development page
-- [ ] Commands page
+- [X] Commands page
 
 💡Trivial
 - [X] Change contact details for messages
-- [ ] Update Google Form link if necessary
+- [X] Update Google Form link if necessary
 - [ ] Try to automate message generation
 - [ ] Make bot accept more than 1 admin chat id (if possible)
 - [ ] Clean and refactor code
