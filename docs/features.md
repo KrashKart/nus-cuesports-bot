@@ -13,6 +13,7 @@ The main features are:
 * [Session Management](#session-management)
 * [Group Management](#group-management)
 * [Super User Management](#super-user-management)
+* [Scheduled Ping](#scheduled-ping)
 
 > ℹ️ TIP
 > You can view the command format and descriptions in [Commands](commands.md)
@@ -43,3 +44,6 @@ The telebot deals with 4 (types) of groups: ADMIN, RECRE and SPAM TEST.
 Super users are able to set group roles (see [Group Management](#group-management)), which are vital to control command permissions, and view group and user IDs.
 
 Super users can be registered and unregistered in groups where super user operations are permitted. For now, only the ADMIN and SPAM TEST groups allow access to the super user commands.
+
+## Scheduled Ping
+To prevent the bot instance from dying, a scheduled ping is run every 10 minutes. This prevents input lag and cold starts, which can severely impact bot response, performance, and even cause duplicate messages due to Telegram's short timeout limit forcing an unnecessary retry.

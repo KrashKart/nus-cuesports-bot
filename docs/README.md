@@ -22,21 +22,20 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - [X] View sessions
   - [X] Segregate active and available sessions
 - [X] Shift code to commands folder and modularize
+- [X] Fix cold start problem (added scheduled ping)
 - [ ] Update help command (command list)
-- [ ] Fix cold start problem
+- [ ] Add Redis cache to prevent duplicate messages/callbacks
 
 :book: Documentation
 - [X] Set up Github pages and workflow (Github Actions)
 - [X] Index page (landing page)
 - [X] Format README.md
 - [X] Features page
-- [ ] Development page
 - [X] Commands page
+- [ ] Development page
 
 💡Trivial
 - [X] Change contact details for messages
 - [X] Update Google Form link if necessary
-- [ ] Try to automate message generation
-- [ ] Make bot accept more than 1 admin chat id (if possible)
 - [ ] Clean and refactor code
 - [ ] Create sync for local json files

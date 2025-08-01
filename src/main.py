@@ -9,9 +9,9 @@ import sys
 from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
 
-from commands.group_management import set_admin_group, set_recre_group
+from commands.group_management import set_admin_group, set_recre_group, get_group_id
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
-from commands.super_user import get_user_id, get_group_id, register_super_user, unregister_super_user, is_super_user, list_super_users
+from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
 from commands.session_management import view_sessions, update_sessions, add_session, delete_session
 
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
@@ -19,6 +19,7 @@ from flask import Flask, jsonify, request, abort
 from telebot.types import Message
 
 from utils.tg_logging import send_log_message
+from utils.datetime_utils import datetime_to_cron
 
 singapore_tz = pytz.timezone('Asia/Singapore')
 
@@ -137,6 +138,14 @@ def main():
     def handle_end_poll():
         try:
             end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages)
+            return jsonify({"status": "success"}), 200
+        except Exception as e:
+            logger.error(f"Error ending poll: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    
+    @app.route('/ping', methods=['POST'])
+    def handle_ping():
+        try:
             return jsonify({"status": "success"}), 200
         except Exception as e:
             logger.error(f"Error ending poll: {e}")
@@ -334,6 +343,9 @@ def main():
 
     job_name = 'end_job'
     create_or_update_scheduler_job("end", schedules["poll"]["end"]["day"], schedules["poll"]["end"]["time"], job_name)
+
+    job_name = 'ping_job'
+    create_or_update_scheduler_job("ping", schedules["ping"]["day"], schedules["ping"]["time"], job_name)
 
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
 
