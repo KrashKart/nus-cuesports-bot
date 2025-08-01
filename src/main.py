@@ -19,7 +19,6 @@ from flask import Flask, jsonify, request, abort
 from telebot.types import Message
 
 from utils.tg_logging import send_log_message
-from utils.datetime_utils import datetime_to_cron
 
 singapore_tz = pytz.timezone('Asia/Singapore')
 
@@ -311,7 +310,7 @@ def main():
     
     @bot.message_handler(commands=['get_group_id'])
     def get_group_id_handler(message: Message):
-        get_group_id(bot, message, super_users, groups, config)
+        get_group_id(bot, message)
 
     #################################################
     #

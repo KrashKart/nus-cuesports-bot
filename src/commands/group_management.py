@@ -42,5 +42,5 @@ def set_recre_group(bot: TeleBot, message: Message, groups: dict, config: dict) 
     logger.info(f"Recreational group updated successfully to {new_recre_group_name} : {new_recre_group_id}.")
 
 @_group_wrapper
-def get_group_id(bot: TeleBot, message: Message, super_users: list, groups: dict, config: dict) -> None:
+def get_group_id(bot: TeleBot, message: Message) -> None:
     bot.send_message(message.chat.id, f"The group id is {message.chat.id}")
