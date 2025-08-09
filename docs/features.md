@@ -47,3 +47,6 @@ Super users can be registered and unregistered in groups where super user operat
 
 ## Scheduled Ping
 To prevent the bot instance from dying, a scheduled ping is run every 10 minutes. This prevents input lag and cold starts, which can severely impact bot response, performance, and even cause duplicate messages due to Telegram's short timeout limit forcing an unnecessary retry.
+
+## Update ID Caching
+As a secondary measure to prevent duplicate messages, the bot stores the highest update ID in a "cache". If the next update ID is less than or equal to the highest update ID, it will not process that update.
