@@ -8,6 +8,7 @@ import sys
 
 from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
+from features.caching import update_with_cache
 
 from commands.group_management import set_admin_group, set_recre_group, get_group_id
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
@@ -78,11 +79,13 @@ def main():
     RECRE_GROUP = groups.get("RECRE_GROUP", {}).get("id", None)
 
     bot = create_bot(api_key)
+    send_log_message(bot, f"Bot started")
 
     # Persistent data
     polls = load_data_from_gcs("polls.json")
     message_ids = load_data_from_gcs("message_ids.json")
     payments = load_data_from_gcs("payments.json")
+    updates = load_data_from_gcs("updates.json")
 
     # Initialize Flask app
     app = Flask(__name__)
@@ -102,13 +105,16 @@ def main():
     #################################################
     @app.route('/webhook', methods=['POST'])
     def webhook():
-        if request.headers.get('content-type') == 'application/json':
-            json_string = request.get_data().decode('utf-8')
-            update = telebot.types.Update.de_json(json_string)
-            bot.process_new_updates([update])
-            return ''
-        else:
-            abort(403)
+        try:
+            if request.headers.get('content-type') == 'application/json':
+                json_string = request.get_data().decode('utf-8')
+                update = telebot.types.Update.de_json(json_string)
+                update_with_cache(bot, update, updates)
+                return ''
+            else:
+                abort(403)
+        except Exception as e:
+            send_log_message(bot, e)
     
     @app.route('/prepoll', methods=['POST'])
     def scheduled_prepoll():
@@ -167,9 +173,15 @@ def main():
     @bot.message_handler(commands=['restart'])
     def restart(message: Message):
         if message.chat.id == ADMIN_GROUP:
+            save_data_to_gcs("polls.json", polls)
+            save_data_to_gcs("message_ids.json", message_ids)
+            save_data_to_gcs("payments.json", payments)
+            save_data_to_gcs("config.json", config)
+            save_data_to_gcs("messages.json", messages)
+            save_data_to_gcs("updates.json", updates)
+
             send_log_message(bot, f"Bot restart called on {message.chat.id}")
             restart_bot()
-            send_log_message(bot, "Bot restarted")
 
     @bot.message_handler(commands=['help', 'command_list'])
     def help_command(message: Message):

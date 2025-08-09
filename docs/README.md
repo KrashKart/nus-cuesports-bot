@@ -23,10 +23,10 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - [X] Segregate active and available sessions
 - [X] Shift code to commands folder and modularize
 - [X] Fix cold start problem (added scheduled ping)
+- [X] Add caching system to prevent duplicate messages/callbacks
 - [ ] Update help command (command list)
-- [ ] Add Redis cache to prevent duplicate messages/callbacks
 
-:book: Documentation
+📚 Documentation
 - [X] Set up Github pages and workflow (Github Actions)
 - [X] Index page (landing page)
 - [X] Format README.md
@@ -34,7 +34,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [X] Commands page
 - [ ] Development page
 
-💡Trivial
+💡Trivial (optional)
 - [X] Change contact details for messages
 - [X] Update Google Form link if necessary
 - [ ] Clean and refactor code
