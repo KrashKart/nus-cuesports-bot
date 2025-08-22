@@ -46,6 +46,7 @@ def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, a
                                   reply_markup=markup,
                                   parse_mode='HTML')
             del polls[poll_id]
+            save_json_file_to_gcs("polls.json", polls)
             logger.info(f"Poll ended in group {chat_id} with id {message_id}")
             send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}")
         except Exception as e:
@@ -81,6 +82,7 @@ def manual_end_poll(bot: TeleBot, polls: dict, chat_id: str | int, payments: dic
                                   reply_markup=markup,
                                   parse_mode='HTML')
             del polls[poll_id]
+            save_json_file_to_gcs("polls.json", polls)
             logger.info(f"Poll ended in group {chat_id} with id {message_id}")
             send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}")
 
