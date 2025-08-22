@@ -95,7 +95,7 @@ def update_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
         bot.send_message(message.chat.id, text = f"Enter option numbers in increasing order!")
     else:
         for i in command_params[1:]:
-            if int(i) < 1 or int(i) >= len(all_options):
+            if int(i) < 1 or int(i) > len(all_options):
                 bot.send_message(message.chat.id, f"Enter a valid option number to activate! (From 1 to {len(all_options)})")
                 return
         new_options = [all_options[int(_i )- 1] for _i in command_params[1:]]
