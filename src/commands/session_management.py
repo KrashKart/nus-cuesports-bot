@@ -75,7 +75,7 @@ def delete_session(bot: TeleBot, message: Message, messages: dict) -> None:
     else:
         _, idx = command_params
         idx = int(idx)
-        if 0 <= idx < len(all_options): 
+        if 0 < idx <= len(all_options):
             removed = all_options.pop(idx - 1)
             messages["Poll"]["all_options"] = all_options
             save_json_file_to_gcs("messages.json", messages)
