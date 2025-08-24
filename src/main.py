@@ -8,6 +8,7 @@ import sys
 
 from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, manual_end_poll
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
+from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
 
 from commands.group_management import set_admin_group, set_recre_group, get_group_id
@@ -295,6 +296,11 @@ def main():
     @bot.message_handler(commands=['delete_session'])
     def delete_session_handler(message: Message):
         delete_session(bot, message, messages, ADMIN_GROUP)
+
+    @bot.message_handler(commands=['get_paid'])
+    def get_paid_list_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            read_paid_telegrams(bot, message, ADMIN_GROUP)
 
     #################################################
     #

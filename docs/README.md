@@ -37,5 +37,6 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 💡Trivial (optional)
 - [X] Change contact details for messages
 - [X] Update Google Form link if necessary
+- [ ] Add Google Sheets integration
 - [ ] Clean and refactor code
 - [ ] Create sync for local json files

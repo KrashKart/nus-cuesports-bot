@@ -5,3 +5,4 @@ telebot==0.0.5
 google-cloud-storage==2.10.0
 google-cloud-scheduler==2.13.5
 flask==2.3.2
+google-api-python-client
