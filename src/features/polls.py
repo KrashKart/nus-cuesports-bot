@@ -169,7 +169,8 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
         count = len(names)
         poll_message += f"<blockquote><b>{opt}</b> (👤 {count})</blockquote>"
         if names:
-            poll_message += "\n".join(names) + "\n"
+            names_without_brackets = list(map(lambda x: x.replace("<", "").replace(">", ""), names))
+            poll_message += "\n".join(names_without_brackets) + "\n"
         else:
             poll_message += "No votes yet\n"
         poll_message += "\n"
