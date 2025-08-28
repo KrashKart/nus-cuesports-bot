@@ -106,6 +106,7 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
     question = messages["Poll"]["Question"]
     body = messages["Poll"]["Body"]
     options = messages["Poll"]["Options"]
+    capacities = messages["Poll"]["Capacities"]
     poll_id = f"{group_id}_{int(datetime.now().timestamp())}"  # Create a unique poll_id
     polls[poll_id] = {option: [] for option in options}
 
@@ -118,8 +119,8 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
 
     poll_message = f"<blockquote><b>{question}</b></blockquote>"
     poll_message += body
-    for opt in options:
-        poll_message += f"<blockquote><b>{opt}</b> (👤 0)</blockquote>"
+    for opt, caps in zip(options, capacities):
+        poll_message += f"<blockquote><b>{opt}</b> (👤 0/{capacities})</blockquote>"
         poll_message += "No votes yet\n\n"
 
     sent_message = bot.send_message(group_id, poll_message, reply_markup=markup, parse_mode='HTML')
@@ -160,14 +161,15 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
 
     question = messages["Poll"]["Question"]
     body = messages["Poll"]["Body"]
+    capacities = messages["Poll"]["Capacities"]
     poll_message = f"<blockquote><b>{question}</b></blockquote>\n\n"
     poll_message += body
 
-    for opt, names in polls[poll_id].items():
+    for (opt, names), cap in zip(polls[poll_id].items(), capacities):
         if opt == "message_id":
             continue
         count = len(names)
-        poll_message += f"<blockquote><b>{opt}</b> (👤 {count})</blockquote>"
+        poll_message += f"<blockquote><b>{opt}</b> (👤 {count}/{cap})</blockquote>"
         if names:
             names_without_brackets = list(map(lambda x: x.replace("<", "").replace(">", ""), names))
             poll_message += "\n".join(names_without_brackets) + "\n"
