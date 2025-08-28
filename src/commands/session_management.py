@@ -103,3 +103,22 @@ def update_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
         save_json_file_to_gcs("messages.json", messages)
         new_option_format = '\n'.join(new_options)
         bot.send_message(message.chat.id, f"Session updated:\n{new_option_format}")
+
+@_session_management_wrapper
+def set_capacity(bot: TeleBot, message: Message, messages: dict) -> None:
+    command_params = message.text.strip().split()
+    capacities = messages.get("Poll", {}).get("Capacities", [])
+    sessions = messages.get("Poll", {}).get("Options", [])
+    if len(command_params) != 3:
+        bot.send_message(message.chat.id, text = f"Usage: /set_capacity <session_number> <capacity>")
+    else:
+        _, session_idx, new_capacity = command_params
+        session_idx = int(session_idx)
+        if 0 < session_idx < 4:
+            old_capacity = capacities[session_idx - 1]
+            capacities[session_idx - 1] = new_capacity
+            messages["Poll"]["Capacities"] = capacities
+            save_json_file_to_gcs("messages.json", messages)
+            bot.send_message(message.chat.id, f"Session capacity updated!\nSession: {sessions[session_idx - 1]}\nChange: {old_capacity} to {new_capacity}")
+        else:
+            bot.send_message(message.chat.id, "Invalid session number! Choose between 1 and 3 inclusive!")
