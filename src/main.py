@@ -14,7 +14,7 @@ from features.caching import update_with_cache
 from commands.group_management import set_admin_group, set_recre_group, get_group_id
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
-from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity
+from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, view_capacities
 
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
@@ -307,6 +307,11 @@ def main():
     def set_capacity_handler(message: Message):
         if message.chat.id == ADMIN_GROUP:
             set_capacity(bot, message, messages, ADMIN_GROUP)
+    
+    @bot.message_handler(commands=['view_capacities'])
+    def view_capacities_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            view_capacities(bot, message, messages, ADMIN_GROUP)
 
     @bot.message_handler(commands=['get_paid'])
     def get_paid_list_handler(message: Message):

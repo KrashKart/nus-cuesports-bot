@@ -122,3 +122,10 @@ def set_capacity(bot: TeleBot, message: Message, messages: dict) -> None:
             bot.send_message(message.chat.id, f"Session capacity updated!\nSession: {sessions[session_idx - 1]}\nChange: {old_capacity} to {new_capacity}")
         else:
             bot.send_message(message.chat.id, "Invalid session number! Choose between 1 and 3 inclusive!")
+
+@_session_management_wrapper
+def view_capacities(bot: TeleBot, message: Message, messages: dict) -> None:
+    capacities = messages.get("Poll", {}).get("Capacities", [])
+    sessions = messages.get("Poll", {}).get("Options", [])
+    sessions_with_capacities = "\n".join(map(lambda x: f"{x[0]}: {x[1]}", zip(sessions, capacities)))
+    bot.send_message(message.chat.id, sessions_with_capacities)

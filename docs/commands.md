@@ -28,6 +28,8 @@
    * [update_sessions](#update_sessions)
    * [add_sessions](#add_sessions)
    * [delete_session](#delete_session)
+   * [view_capacities](#view_capacities)
+   * [set_capacity](#set_capacity)
 - [Group Management](#group-management)
    * [verify_groups](#verify_groups)
    * [set_admin](#set_admin)
@@ -136,6 +138,16 @@ Usage: ```/delete_session <session number>```
 Deletes a session based on the selected session number.
 
 Also see the [warning about session numbers](#session-management).
+
+### view_capacities
+Usage: ```/view_capacities```
+
+Displays the session capacities per session for all active sessions.
+
+### set_capacity
+Usage: ```/set_capacity <session index> <capacity>```
+
+Sets the capacity for the session with the index ```<session index>```.
 
 ## Group Management
 ### verify_groups
