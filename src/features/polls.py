@@ -144,6 +144,7 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
     user_id = f"{user.full_name}-@{user.username}-{user.id}"
     user_id_lst = str([user.full_name, user.username, user.id])
     user_name = f"{user.full_name} (@{user.username})" if user.username else user.full_name
+    user_name = user_name.replace("<", "").replace(">", "")
 
     if not has_started_bot(bot, user_id, group_id):
         bot.answer_callback_query(call.id, "Please start the bot to participate in the poll. Click the link provided in the poll message to start.", show_alert=True)
@@ -171,8 +172,7 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
         count = len(names)
         poll_message += f"<blockquote><b>{opt}</b> (👤 {count}/{cap})</blockquote>"
         if names:
-            names_without_brackets = list(map(lambda x: x.replace("<", "").replace(">", ""), names))
-            poll_message += "\n".join(names_without_brackets) + "\n"
+            poll_message += "\n".join(names) + "\n"
         else:
             poll_message += "No votes yet\n"
         poll_message += "\n"
