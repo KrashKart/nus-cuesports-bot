@@ -116,7 +116,7 @@ def set_capacity(bot: TeleBot, message: Message, messages: dict) -> None:
         session_idx = int(session_idx)
         if 0 < session_idx < 4:
             old_capacity = capacities[session_idx - 1]
-            capacities[session_idx - 1] = new_capacity
+            capacities[session_idx - 1] = int(new_capacity)
             messages["Poll"]["Capacities"] = capacities
             save_json_file_to_gcs("messages.json", messages)
             bot.send_message(message.chat.id, f"Session capacity updated!\nSession: {sessions[session_idx - 1]}\nChange: {old_capacity} to {new_capacity}")

@@ -12,7 +12,7 @@ MAX_OCCUPANCY = 36
 def send_confirmation_message(bot, admin_group, message_ids, payments, messages):
 
     # Find first N member to fill up max Occupancy
-    to_be_confirmed = __find_n_occupancy(message_ids)
+    to_be_confirmed = __find_n_occupancy(message_ids, messages)
 
     # Reformat to_be_confirmed to {user1: {options: [options], paid:False}, user2: {options: [options], paid:False}...}
     __find_session_overlap(to_be_confirmed, payments)
@@ -115,12 +115,12 @@ def __find_session_overlap(message_ids, payments):
     save_json_file_to_gcs("payments.json", payments)
 
 
-def __find_n_occupancy(message_ids):
+def __find_n_occupancy(message_ids, messages):
     to_be_confirmed = {}
-    for _key, _value in message_ids.items():
-        if len(_value) >= MAX_OCCUPANCY:
-            to_be_confirmed[_key] = _value[:MAX_OCCUPANCY]
-            message_ids[_key] = _value[MAX_OCCUPANCY:len(_value)]
+    for (_key, _value), _sess_limit in zip(message_ids.items(), messages["Poll"]["Capacities"]):
+        if len(_value) >= _sess_limit:
+            to_be_confirmed[_key] = _value[:_sess_limit]
+            message_ids[_key] = _value[_sess_limit:len(_value)]
         else:
             to_be_confirmed[_key] = _value
             message_ids[_key] = []

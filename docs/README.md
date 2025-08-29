@@ -25,6 +25,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [X] Fix cold start problem (added scheduled ping)
 - [X] Add caching system to prevent duplicate messages/callbacks
 - [X] Add functionality to change and display session capacity in polls
+- [ ] Restrict poll confirmation according to session capacity (IN TESTING)
 - [ ] Update help command (command list)
 
 📚 Documentation
