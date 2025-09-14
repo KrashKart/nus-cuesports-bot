@@ -28,7 +28,6 @@
    * [update_sessions](#update_sessions)
    * [add_sessions](#add_sessions)
    * [delete_session](#delete_session)
-   * [view_capacities](#view_capacities)
    * [set_capacity](#set_capacity)
 - [Group Management](#group-management)
    * [verify_groups](#verify_groups)
@@ -71,12 +70,12 @@ Manually sends the poll to the ```RECRE_GROUP```. More than one poll can technic
 ### end_poll
 Usage: ```/end_poll```
 
-Manually ends the poll in the ```RECRE_GROUP```. If more than one poll exists, ends the earliest poll established in the group. Note that unlike the automated ```end_poll```, confirmation is not automated here.
+Manually ends the poll in the ```RECRE_GROUP``` and initiates confirmation. If more than one poll exists, ends the earliest poll established in the group.
 
 ### confirmation
 Usage: ```/confirmation```
 
-Manually sends confirmation information to all polled members, and sends a compilation of those members to the ```ADMIN_GROUP``` for payment tracking. This command is still a W.I.P.
+Manually sends confirmation information to all polled members, and sends a compilation of those members to the ```ADMIN_GROUP``` for payment tracking.
 
 ### unconfirm
 Usage: ```/unconfirm <user name>```
@@ -96,7 +95,7 @@ Sends an identical poll to the ```ADMIN_GROUP```. Beware as this shares the same
 ### test_end_poll
 Usage: ```/test_end_poll``
 
-Ends the test poll in the ```ADMIN_GROUP```. Does not start confirmation like ```/end_poll```.
+Ends the test poll in the ```ADMIN_GROUP``` and initiates confirmation.
 
 ## Scheduling Management
 ### current_schedule
@@ -118,7 +117,7 @@ Here, we define two types of sessions, active and available. Active sessions are
 ### view_sessions
 Usage: ```/view_sessions```
 
-Displays all active and available sessions from the bot, sorted in chronological order with earliest first.
+Displays all active and available sessions from the bot as well as their respective capacities, sorted in chronological order with earliest first.
 
 ### update_sessions
 Usage: ```/update_sessions <session 1>...<session 3>```
@@ -138,11 +137,6 @@ Usage: ```/delete_session <session number>```
 Deletes a session based on the selected session number.
 
 Also see the [warning about session numbers](#session-management).
-
-### view_capacities
-Usage: ```/view_capacities```
-
-Displays the session capacities per session for all active sessions.
 
 ### set_capacity
 Usage: ```/set_capacity <session index> <capacity>```

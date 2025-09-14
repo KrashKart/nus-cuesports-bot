@@ -8,6 +8,7 @@ from telebot.types import Message
 from typing import Callable
 
 logger = logging.getLogger(__name__)
+DEFAULT_MAX_CAPACITY = 36
 
 def _session_management_wrapper(function: Callable[..., None]) -> Callable[..., None]:
     def new_function(bot: TeleBot, message: Message, messages: dict, admin_group: int) -> None:
@@ -28,11 +29,10 @@ def view_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
     if len(command_params) != 1:
         bot.send_message(message.chat.id, text = f"usage: /view_session")
     else:
-        all_options = messages.get("Poll", {}).get("all_options", [])
-        active_options = messages.get("Poll", {}).get("Options", [])
+        options = messages.get("Poll", {}).get("Options", {})
 
-        other_options_format = "\n".join([f"{_i + 1}: {_option}" for _i, _option in enumerate(all_options) if _option not in active_options])
-        active_options_format = "\n".join([f"{_i + 1}: {_option}" for _i, _option in enumerate(all_options) if _option in active_options])
+        other_options_format = "\n".join([f"{_i + 1}: {k} (Cap {v['Capacity']})" for _i, (k, v) in enumerate(options.items()) if not v["Active"]])
+        active_options_format = "\n".join([f"{_i + 1}: {k} (Cap {v['Capacity']})" for _i, (k, v) in enumerate(options.items()) if v["Active"]])
         bot.send_message(message.chat.id, f"Active Sessions:\n{active_options_format}\n\nAvailable Sessions:\n{other_options_format}")
 
 @_session_management_wrapper
@@ -55,13 +55,14 @@ def add_session(bot: TeleBot, message: Message, messages: dict) -> None:
             return
         
         new_all_option = f"{day.capitalize()} {convert_to_ampm(start_time)}-{convert_to_ampm(end_time)}"
-
-        if new_all_option in messages["Poll"]["all_options"]:
+        options = messages["Poll"]["Options"]
+        if new_all_option in options:
             bot.send_message(message.chat.id, "Session already exists!")
             return
 
-        messages["Poll"]["all_options"].append(new_all_option)
-        messages["Poll"]["all_options"].sort(key=lambda x: int(DAYS[x.strip().split()[0].lower()]))
+        options[new_all_option] = {"Capacity": DEFAULT_MAX_CAPACITY, "Active": 0}
+        messages["Poll"]["Options"] = dict(sorted(options.items(), 
+                                                  key=lambda x: int(DAYS[x[0].strip().split()[0].lower()])))
 
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Session added:\n{new_all_option}")
@@ -69,63 +70,63 @@ def add_session(bot: TeleBot, message: Message, messages: dict) -> None:
 @_session_management_wrapper
 def delete_session(bot: TeleBot, message: Message, messages: dict) -> None:
     command_params = message.text.strip().split()
-    all_options = messages.get("Poll", {}).get("all_options", [])
+    options = messages.get("Poll", {}).get("Options", [])
     if len(command_params) != 2:
         bot.send_message(message.chat.id, text = f"usage: /delete_session <number>")
     else:
         _, idx = command_params
         idx = int(idx)
-        if 0 < idx <= len(all_options):
-            removed = all_options.pop(idx - 1)
-            messages["Poll"]["all_options"] = all_options
+        if 0 < idx <= len(options):
+            sess_name = list(options.keys())[idx - 1]
+            del options[sess_name]
+            messages["Poll"]["Options"] = options
+
             save_json_file_to_gcs("messages.json", messages)
-            bot.send_message(message.chat.id, f"Session deleted:\n{removed}")
+            bot.send_message(message.chat.id, f"Session deleted:\n{sess_name}")
         else:
-            bot.send_message(message.chat.id, f"Enter a valid option number to delete! (From 1 to {len(all_options)})")
+            bot.send_message(message.chat.id, f"Enter a valid option number to delete! (From 1 to {len(options)})")
 
 @_session_management_wrapper
 def update_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
     command_params = message.text.split()
-    all_options = messages.get("Poll", {}).get("all_options", [])
+    options = messages.get("Poll", {}).get("Options", [])
     if len(command_params) == 1 or len(command_params) > 4:
-        all_options_format = "\n".join([f"{_i + 1}: {_option}" for _i, _option in enumerate(all_options)])
+        all_options_format = "\n".join([f"{_i + 1}: {_option}" for _i, _option in enumerate(options)])
         bot.send_message(message.chat.id,
                             text = f"usage: /update_session <Option 1> <Option 2> <Option 3> (Enter the option numbers in ascending order)\n{all_options_format}")
     elif command_params[1:] != sorted(command_params[1:]):
         bot.send_message(message.chat.id, text = f"Enter option numbers in increasing order!")
     else:
         for i in command_params[1:]:
-            if int(i) < 1 or int(i) > len(all_options):
-                bot.send_message(message.chat.id, f"Enter a valid option number to activate! (From 1 to {len(all_options)})")
+            if int(i) < 1 or int(i) > len(options):
+                bot.send_message(message.chat.id, f"Enter a valid option number to activate! (From 1 to {len(options)})")
                 return
-        new_options = [all_options[int(_i )- 1] for _i in command_params[1:]]
-        messages["Poll"]["Options"] = new_options
+        idxs = list(map(int, command_params[1:]))
+        to_be_activated = [sess for idx, sess in enumerate(list(options.keys())) if idx + 1 in idxs]
+        
+        for sess in options:
+            options[sess]["Active"] = 1 if sess in to_be_activated else 0
+        
+        messages["Poll"]["Options"] = options
         save_json_file_to_gcs("messages.json", messages)
-        new_option_format = '\n'.join(new_options)
-        bot.send_message(message.chat.id, f"Session updated:\n{new_option_format}")
+        new_option_format = '\n'.join(map(lambda x: f'{x} (Cap {options[x]["Capacity"]})', to_be_activated))
+        bot.send_message(message.chat.id, f"Session activated: \n{new_option_format}")
 
 @_session_management_wrapper
 def set_capacity(bot: TeleBot, message: Message, messages: dict) -> None:
     command_params = message.text.strip().split()
-    capacities = messages.get("Poll", {}).get("Capacities", [])
-    sessions = messages.get("Poll", {}).get("Options", [])
+    options = messages.get("Poll", {}).get("Options", [])
     if len(command_params) != 3:
         bot.send_message(message.chat.id, text = f"Usage: /set_capacity <session_number> <capacity>")
     else:
         _, session_idx, new_capacity = command_params
         session_idx = int(session_idx)
-        if 0 < session_idx < 4:
-            old_capacity = capacities[session_idx - 1]
-            capacities[session_idx - 1] = int(new_capacity)
-            messages["Poll"]["Capacities"] = capacities
+        if 0 < session_idx <= len(options):
+            sess_name = list(options.keys())[session_idx - 1]
+            old_capacity = options[sess_name]["Capacity"]
+            options[sess_name]["Capacity"] = int(new_capacity)
+            messages["Poll"]["Options"] = options
             save_json_file_to_gcs("messages.json", messages)
-            bot.send_message(message.chat.id, f"Session capacity updated!\nSession: {sessions[session_idx - 1]}\nChange: {old_capacity} to {new_capacity}")
+            bot.send_message(message.chat.id, f"Session capacity updated!\nSession: {sess_name}\nChange: {old_capacity} to {new_capacity}")
         else:
-            bot.send_message(message.chat.id, "Invalid session number! Choose between 1 and 3 inclusive!")
-
-@_session_management_wrapper
-def view_capacities(bot: TeleBot, message: Message, messages: dict) -> None:
-    capacities = messages.get("Poll", {}).get("Capacities", [])
-    sessions = messages.get("Poll", {}).get("Options", [])
-    sessions_with_capacities = "\n".join(map(lambda x: f"{x[0]}: {x[1]}", zip(sessions, capacities)))
-    bot.send_message(message.chat.id, sessions_with_capacities)
+            bot.send_message(message.chat.id, f"Invalid session number! Choose between 1 and {len(options)} inclusive!")

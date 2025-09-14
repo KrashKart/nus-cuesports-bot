@@ -3,11 +3,10 @@ import logging
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from utils.gcs_utils import save_json_file_to_gcs
 from utils.tg_logging import send_log_message
+from utils.datetime_utils import DAYS
 
 logger = logging.getLogger(__name__)
 TRAINING_PRICE = 8
-MAX_OCCUPANCY = 36
-
 
 def send_confirmation_message(bot, admin_group, message_ids, payments, messages):
 
@@ -26,9 +25,8 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages)
         _message = messages["Confirmation"]["Body"]
         _google_doc = messages["Confirmation"]["Google Doc"]
         _message_format = __message_format(_training_sess)
-        _training_director = messages["Confirmation"]["Training Director"]
-        _phone_number = messages["Confirmation"]["Phone Number"]
-
+        _training_director = messages["Payment Director"]["Name"]
+        _phone_number = messages["Payment Director"]["Phone Number"]
 
         _message = _message.replace("TO_BE_PAID", str(to_be_paid))
         _message = _message.replace("GOOGLE_DOC", _google_doc)
@@ -97,6 +95,8 @@ def __convert_payment_message(payment_lst):
 
 
 def __message_format(lst):
+    lst = list(lst)
+    lst.sort(key=lambda x: int(DAYS[x.strip().split()[0].lower()]))
     if len(lst) == 1:
         return lst[0]
     elif len(lst) == 2:
@@ -109,15 +109,19 @@ def __find_session_overlap(message_ids, payments):
     for _option, _users in message_ids.items():
         for _user in _users:
             if _user not in payments:
-                payments[_user] = {"options": [], "paid": False}
-            payments[_user]["options"].append(_option)
-
+                payments[_user] = {"options": set(), "paid": False}
+            payments[_user]["options"].add(_option)
+    for _user, v in payments.items():
+        v["options"] = list(v["options"])
+        payments[_user] = v
     save_json_file_to_gcs("payments.json", payments)
 
 
 def __find_n_occupancy(message_ids, messages):
     to_be_confirmed = {}
-    for (_key, _value), _sess_limit in zip(message_ids.items(), messages["Poll"]["Capacities"]):
+    options = messages["Poll"]["Options"]
+    for _key, _value in message_ids.items():
+        _sess_limit = options[_key]["Capacity"]
         if len(_value) >= _sess_limit:
             to_be_confirmed[_key] = _value[:_sess_limit]
             message_ids[_key] = _value[_sess_limit:len(_value)]

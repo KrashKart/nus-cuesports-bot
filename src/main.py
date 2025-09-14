@@ -6,7 +6,7 @@ import re
 import pytz
 import sys
 
-from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, manual_end_poll
+from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
 from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
@@ -14,7 +14,7 @@ from features.caching import update_with_cache
 from commands.group_management import set_admin_group, set_recre_group, get_group_id
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
-from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, view_capacities
+from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity#, view_capacities
 
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
@@ -218,12 +218,15 @@ def main():
     @bot.message_handler(commands=['poll'])
     def handle_start_poll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
+            polls.clear()
+            message_ids.clear()
+            payments.clear()
             start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments)
     
     @bot.message_handler(commands=['end_poll'])
     def handle_end_poll(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            manual_end_poll(bot, polls, RECRE_GROUP, payments)
+            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages)
 
     @bot.callback_query_handler(func=lambda call: True)
     def handle_callback_query(call):
@@ -261,12 +264,15 @@ def main():
     @bot.message_handler(commands=['test_poll'])
     def handle_start_test_poll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, {})
+            polls.clear()
+            message_ids.clear()
+            payments.clear()
+            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, payments)
     
     @bot.message_handler(commands=['test_end_poll'])
     def handle_test_end_poll(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            manual_end_poll(bot, polls, ADMIN_GROUP, {})
+            end_poll(bot, polls, message_ids, ADMIN_GROUP, ADMIN_GROUP, payments, messages)
 
     #################################################
     #
@@ -307,11 +313,6 @@ def main():
     def set_capacity_handler(message: Message):
         if message.chat.id == ADMIN_GROUP:
             set_capacity(bot, message, messages, ADMIN_GROUP)
-    
-    @bot.message_handler(commands=['view_capacities'])
-    def view_capacities_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            view_capacities(bot, message, messages, ADMIN_GROUP)
 
     @bot.message_handler(commands=['get_paid'])
     def get_paid_list_handler(message: Message):
