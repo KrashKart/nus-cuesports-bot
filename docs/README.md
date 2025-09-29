@@ -26,7 +26,11 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - [X] Add functionality to change capacities dynamically
   - [X] Enable capacity display in polls
   - [X] Restrict poll confirmation according to session capacity
+
+🕷️ Bugs
 - [X] Prevent duplication of sessions during confirmation (using Python sets)
+- [X] Fix confirmation pipeline not working properly for test poll functions
+- [X] Fix formatting issues in prepoll, poll and confirmation messages
 
 📚 Documentation
 - [X] Set up Github pages and workflow (Github Actions)
@@ -39,8 +43,8 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 💡Trivial (optional)
 - [X] Change contact details for messages
 - [X] Update Google Form link if necessary
-- [X] Fix cold start problem (added scheduled ping)
 - [X] Add caching system to prevent duplicate messages/callbacks
+- [X] Fix cold start problem (added scheduled ping)
 - [X] Shift code to commands folder and modularize
 - [ ] Update help command (command list)
 - [ ] Add Google Sheets integration (maybe not?)

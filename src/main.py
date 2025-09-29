@@ -314,6 +314,7 @@ def main():
         if message.chat.id == ADMIN_GROUP:
             set_capacity(bot, message, messages, ADMIN_GROUP)
 
+    # WIP
     @bot.message_handler(commands=['get_paid'])
     def get_paid_list_handler(message: Message):
         if message.chat.id == ADMIN_GROUP:
@@ -339,10 +340,6 @@ def main():
     def verify_group_handler(message: Message):
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(chat_id=message.chat.id, text = f"Admin Group: {ADMIN_GROUP}\nRecre Group: {RECRE_GROUP}")
-
-    @bot.message_handler(commands=['get_user_id'])
-    def get_user_id_handler(message: Message):
-        get_user_id(bot, message, super_users, groups, config)
     
     @bot.message_handler(commands=['get_group_id'])
     def get_group_id_handler(message: Message):
@@ -369,6 +366,10 @@ def main():
     def list_super_users_handler(message: Message):
         list_super_users(bot, message, super_users, groups, config)
 
+    @bot.message_handler(commands=['get_user_id'])
+    def get_user_id_handler(message: Message):
+        get_user_id(bot, message, super_users, groups, config)
+        
     # Schedule tasks
     job_name = 'prepoll_job'
     create_or_update_scheduler_job("prepoll", schedules["prepoll"]["day"], schedules["prepoll"]["time"], job_name)

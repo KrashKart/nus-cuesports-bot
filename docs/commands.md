@@ -10,6 +10,7 @@
 - [Bot Management](#bot-management)
    * [start](#start)
    * [restart](#restart)
+   * [restart_no_save](#restart_no_save)
    * [help](#help)
 - [Poll and Confirmation Management](#poll-and-confirmation-management)
    * [prepoll](#prepoll)
@@ -26,9 +27,10 @@
 - [Session Management](#session-management)
    * [view_sessions](#view_sessions)
    * [update_sessions](#update_sessions)
-   * [add_sessions](#add_sessions)
+   * [add_session](#add_session)
    * [delete_session](#delete_session)
    * [set_capacity](#set_capacity)
+   * [get_paid](#get_paid)
 - [Group Management](#group-management)
    * [verify_groups](#verify_groups)
    * [set_admin](#set_admin)
@@ -39,7 +41,8 @@
    * [is_super_user](#is_super_user)
    * [register_super_user](#register_super_user)
    * [unregister_super_user](#unregister_super_user)
-
+   * [get_user_id](#get_user_id)
+   
 ## Bot Management
 ### start
 Usage: ```/start```
@@ -49,7 +52,12 @@ Starts the bot.
 ### restart
 Usage: ```/restart```
 
-Restarts the bot. Must be called when changing groups/replacing json files so the bot can restart and retrieve the new settings. Even though the bot updates the groups dictionary and json file when changing groups, the ```ADMIN_GROUP``` and ```RECRE_GROUP``` ids are stored as a separate variable, thus are immutable until next restart.
+Restarts the bot. Must be called when changing groups/replacing json files so the bot can restart and retrieve the new settings. Even though the bot updates the groups dictionary and json file when changing groups, the ```ADMIN_GROUP``` and ```RECRE_GROUP``` ids are stored as a separate variable, thus are immutable until next restart. ***Saves all jsons in the current state and reloads them upon startup***.
+
+### restart_no_save
+Usage: ```/restart_no_save```
+
+Restarts the bot, similar to ```restart```. ***Does not save jsons*** and is primarily used for json state modifications without overwriting.
 
 ### help
 Usage: ```/help``` or ```/command_list```
@@ -124,7 +132,7 @@ Usage: ```/update_sessions <session 1>...<session 3>```
 
 Choose up to 3 sessions to activate for the week. Select these sessions by including their index number in ***increasing order***. Less than 3 sessions per week is accepted.
 
-### add_sessions
+### add_session
 Usage: ```/add_session <day> <start time> <end time>```
 
 Add a new session and declare it *available*. Days must be entered in full and capitals are optional ("Monday" and "monday" are fine) and times must be entered in 24-hour format with a colon (HH:MM).
@@ -142,6 +150,9 @@ Also see the [warning about session numbers](#session-management).
 Usage: ```/set_capacity <session index> <capacity>```
 
 Sets the capacity for the session with the index ```<session index>```.
+
+### get_paid
+W.I.P
 
 ## Group Management
 ### verify_groups
@@ -190,3 +201,8 @@ Nicknames are not checked for duplicates, so do deconflict if necessary.
 Usage: ```/unregister_super_user```
 
 Unregisters the user as a super user. ***This can only be called in the ```ADMIN_GROUP```.***
+
+### get_user_id
+Usage: ```/get_user_id```
+
+Get the user id of the user. ***This can only be called in the ```ADMIN_GROUP```.***
