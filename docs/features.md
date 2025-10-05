@@ -14,6 +14,7 @@ The main features are:
 * [Group Management](#group-management)
 * [Super User Management](#super-user-management)
 * [Scheduled Ping](#scheduled-ping)
+* [Update ID Caching](#update-id-caching)
 
 > ℹ️ TIP
 > You can view the command format and descriptions in [Commands](commands.md)
@@ -31,7 +32,7 @@ The bot stores two types of sessions: active, and available. Active sessions are
 However, the bot will still store available sessions that can be declared active at any moment. Likewise, any active session can be deactivated and declared available at any time.
 
 ## Group Management
-The telebot deals with 4 (types) of groups: ADMIN, RECRE and SPAM TEST.
+The telebot deals with 4 (types) of groups: ADMIN, RECRE, SPAM TEST and LOGGING.
 * The ADMIN group permits super users to run commands and control bot schedules, sessions, etc.
 * The RECRE group is the official recreational group to send polls to.
 * The SPAM TEST group is for large-volume testing and aims to reduce spam in the ADMIN group.
