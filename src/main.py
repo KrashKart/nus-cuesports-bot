@@ -14,7 +14,8 @@ from features.caching import update_with_cache
 from commands.group_management import set_admin_group, set_recre_group, get_group_id
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
-from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity#, view_capacities
+from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity
+from commands.misc import send_message_admin, send_message_recre
 
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
@@ -369,8 +370,25 @@ def main():
     @bot.message_handler(commands=['get_user_id'])
     def get_user_id_handler(message: Message):
         get_user_id(bot, message, super_users, groups, config)
+
+    #################################################
+    #
+    #  Miscellaneous
+    #
+    #################################################
+    @bot.message_handler(commands=['send_admin'])
+    def send_message_admin_handler(message: Message):
+        send_message_admin(bot, message, groups)
+    
+    @bot.message_handler(commands=['send_recre'])
+    def send_message_recre_handler(message: Message):
+        send_message_recre(bot, message, groups)
         
-    # Schedule tasks
+    #################################################
+    #
+    #  Task Schedules
+    #
+    #################################################
     job_name = 'prepoll_job'
     create_or_update_scheduler_job("prepoll", schedules["prepoll"]["day"], schedules["prepoll"]["time"], job_name)
 

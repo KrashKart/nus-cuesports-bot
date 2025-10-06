@@ -42,6 +42,9 @@
    * [register_super_user](#register_super_user)
    * [unregister_super_user](#unregister_super_user)
    * [get_user_id](#get_user_id)
+- [Miscellaneous](#miscellaneous)
+   * [send_admin](#send_admin)
+   * [send_recre](#send_recre)
    
 ## Bot Management
 ### start
@@ -206,3 +209,14 @@ Unregisters the user as a super user. ***This can only be called in the ```ADMIN
 Usage: ```/get_user_id```
 
 Get the user id of the user. ***This can only be called in the ```ADMIN_GROUP```.***
+
+## Miscellaneous
+### send_admin
+Usage: ```/send_admin [message]```
+
+Sends a message to the ADMIN_GROUP as the bot. Accepts Telegram's bold, underline and italic formats or HTML formatting.
+
+### send_recre
+Usage: ```/send_recre [message]```
+
+Sends a message to the RECRE_GROUP as the bot. Accepts Telegram's bold, underline and italic formats or HTML formatting.
