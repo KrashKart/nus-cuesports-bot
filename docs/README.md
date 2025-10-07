@@ -38,7 +38,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [X] Format README.md
 - [X] Features page
 - [X] Commands page
-- [ ] Development page
+- [ ] Development page (temporarily done?)
 
 💡Trivial (optional)
 - [X] Change contact details for messages
