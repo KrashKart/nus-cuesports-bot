@@ -46,6 +46,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 - [X] Add caching system to prevent duplicate messages/callbacks
 - [X] Fix cold start problem (added scheduled ping)
 - [X] Shift code to commands folder and modularize
+- [ ] Enable scheduled ping only during polling periods
 - [ ] Update help command (command list)
 - [ ] Add Google Sheets integration (maybe not?)
 - [ ] Clean and refactor code (ongoing...)
