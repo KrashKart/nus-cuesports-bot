@@ -1,46 +1,44 @@
 import logging
 from utils.tg_logging import send_log_message
 from utils.gcs_utils import save_json_file_to_gcs
+from utils.config_interface import get_groups, get_admin_id, get_recre_id
+from utils.permissions import _admin_group_perms, _super_user_perms, _log
 
 from telebot import TeleBot
 from telebot.types import Message
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-def _group_wrapper(set_function: Callable[..., None]) -> Callable[..., None]:
-    def new_set_function(bot: TeleBot, message: Message, super_users: list, groups: dict, config: dict) -> bool:
-        user_id = message.from_user.id
-        if any(user["id"] == user_id for user in super_users):
-            try:
-                set_function(bot, message, groups, config)
-                return True
-            except Exception as e:
-                send_log_message(bot, f"Error in {set_function.__name__}: {e}")
-                logger.error(f"Error in {set_function.__name__}: {e}")
-        else:
-            bot.send_message(message.chat.id, "You are not authorized to use this command.")
-    
-    return new_set_function
-
-@_group_wrapper
-def set_admin_group(bot: TeleBot, message: Message, groups: dict, config: dict) -> None:
+@_log
+@_super_user_perms
+def set_admin_group(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     new_admin_group_id = message.chat.id
     new_admin_group_name = message.chat.title if message.chat.type in ["group", "supergroup"] else "Private Chat"
-    groups["ADMIN_GROUP"] = {"id": new_admin_group_id, "name": new_admin_group_name}
+    groups = get_groups(config)
+    groups["id"], groups["name"] = new_admin_group_id, new_admin_group_name
     save_json_file_to_gcs("config.json", config)
     send_log_message(bot, f"Admin group updated successfully to {new_admin_group_name} : {new_admin_group_id}.")
     logger.info(f"Admin group updated successfully to {new_admin_group_name} : {new_admin_group_id}.")
 
-@_group_wrapper
-def set_recre_group(bot: TeleBot, message: Message, groups: dict, config: dict) -> None:
+@_log
+@_super_user_perms
+def set_recre_group(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     new_recre_group_id = message.chat.id
     new_recre_group_name = message.chat.title if message.chat.type in ["group", "supergroup"] else "Private Chat"
-    groups["RECRE_GROUP"] = {"id": new_recre_group_id, "name": new_recre_group_name}
+    groups = get_groups(config)
+    groups["id"], groups["name"] = new_recre_group_id, new_recre_group_name
     save_json_file_to_gcs("config.json", config)
     send_log_message(bot, f"Recreational group updated successfully to {new_recre_group_name} : {new_recre_group_id}.")
     logger.info(f"Recreational group updated successfully to {new_recre_group_name} : {new_recre_group_id}.")
 
-@_group_wrapper
-def get_group_id(bot: TeleBot, message: Message) -> None:
+@_log
+@_super_user_perms
+def get_group_id(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     bot.send_message(message.chat.id, f"The group id is {message.chat.id}")
+
+@_log
+@_super_user_perms
+@_admin_group_perms
+def verify_group(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    adm_grp, rcr_grp = get_admin_id(config), get_recre_id(config)
+    bot.send_message(chat_id=message.chat.id, text = f"Admin Group: {adm_grp}\nRecre Group: {rcr_grp}")

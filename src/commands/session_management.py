@@ -1,30 +1,17 @@
 import logging
 from utils.gcs_utils import save_json_file_to_gcs
-from utils.tg_logging import send_log_message
+from utils.permissions import _admin_group_perms, _log
 from utils.datetime_utils import is_valid_day, is_valid_time, convert_to_ampm, DAYS
 
 from telebot import TeleBot
 from telebot.types import Message
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 DEFAULT_MAX_CAPACITY = 36
 
-def _session_management_wrapper(function: Callable[..., None]) -> Callable[..., None]:
-    def new_function(bot: TeleBot, message: Message, messages: dict, admin_group: int) -> None:
-        try:
-            if message.chat.id == admin_group:
-                function(bot, message, messages)
-            else:
-                bot.send_message(message.chat.id, f"You are not allowed to use this in {message.chat.title}")
-        except Exception as e:
-            send_log_message(bot, f"Error in {function.__name__}: {e}")
-            logger.error(f"Error in {function.__name__}: {e}")
-    
-    return new_function
-
-@_session_management_wrapper
-def view_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
+@_log
+@_admin_group_perms
+def view_sessions(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.split()
     if len(command_params) != 1:
         bot.send_message(message.chat.id, text = f"usage: /view_session")
@@ -35,8 +22,9 @@ def view_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
         active_options_format = "\n".join([f"{_i + 1}: {k} (Cap {v['Capacity']})" for _i, (k, v) in enumerate(options.items()) if v["Active"]])
         bot.send_message(message.chat.id, f"Active Sessions:\n{active_options_format}\n\nAvailable Sessions:\n{other_options_format}")
 
-@_session_management_wrapper
-def add_session(bot: TeleBot, message: Message, messages: dict) -> None:
+@_log
+@_admin_group_perms
+def add_session(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
 
     if len(command_params) != 4:
@@ -67,8 +55,9 @@ def add_session(bot: TeleBot, message: Message, messages: dict) -> None:
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Session added:\n{new_all_option}")
 
-@_session_management_wrapper
-def delete_session(bot: TeleBot, message: Message, messages: dict) -> None:
+@_log
+@_admin_group_perms
+def delete_session(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     options = messages.get("Poll", {}).get("Options", [])
     if len(command_params) != 2:
@@ -86,8 +75,9 @@ def delete_session(bot: TeleBot, message: Message, messages: dict) -> None:
         else:
             bot.send_message(message.chat.id, f"Enter a valid option number to delete! (From 1 to {len(options)})")
 
-@_session_management_wrapper
-def update_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
+@_log
+@_admin_group_perms
+def update_sessions(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.split()
     options = messages.get("Poll", {}).get("Options", [])
     if len(command_params) == 1 or len(command_params) > 4:
@@ -112,8 +102,9 @@ def update_sessions(bot: TeleBot, message: Message, messages: dict) -> None:
         new_option_format = '\n'.join(map(lambda x: f'{x} (Cap {options[x]["Capacity"]})', to_be_activated))
         bot.send_message(message.chat.id, f"Session activated: \n{new_option_format}")
 
-@_session_management_wrapper
-def set_capacity(bot: TeleBot, message: Message, messages: dict) -> None:
+@_log
+@_admin_group_perms
+def set_capacity(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     options = messages.get("Poll", {}).get("Options", [])
     if len(command_params) != 3:

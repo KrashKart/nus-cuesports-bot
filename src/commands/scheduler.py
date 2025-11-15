@@ -2,6 +2,8 @@ from google.cloud import scheduler_v1
 from google.api_core.exceptions import NotFound
 from utils.gcs_utils import save_json_file_to_gcs
 from utils.datetime_utils import is_valid_day, is_valid_time, DAYS
+from utils.config_interface import get_admin_id, get_schedule, get_prepoll, get_poll, get_end
+from utils.permissions import _admin_group_perms, _log
 from dotenv import load_dotenv
 import logging, os
 
@@ -45,6 +47,7 @@ def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_
         logger.error(f"Error creating/updating scheduler job: {e}")
         raise
 
+# Unused
 def delete_scheduler_job(job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
     
@@ -57,15 +60,17 @@ def delete_scheduler_job(job_name: str) -> None:
         print(f'Error deleting job: {e}')
         raise
 
-def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dict, ADMIN_GROUP: str | int) -> None:
-    if message.chat.id == ADMIN_GROUP:
+@_log
+@_admin_group_perms
+def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    if message.chat.id == get_admin_id(config):
         try:
             command_params = message.text.split()
             if len(command_params) != 4:
                 bot.send_message(message.chat.id, "Usage: /update_schedule <prepoll/poll/end> <day> <time>")
                 return
             
-            schedule_type, day, time = command_params[1], command_params[2], command_params[3]
+            schedule_type, day, time = command_params[1].lower(), command_params[2], command_params[3]
             if schedule_type not in ["prepoll", "poll", "end"]:
                 bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
                 return
@@ -76,18 +81,13 @@ def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dic
                 bot.send_message(message.chat.id, "Invalid time. Time should be in format 'HH:MM'.")
                 return
 
-            if schedule_type == "end":
-                schedules["poll"]["end"]["day"] = day
-                schedules["poll"]["end"]["time"] = time
-            else:
-                schedules[schedule_type]["day"] = day
-                schedules[schedule_type]["time"] = time
+            get_schedule(config)[schedule_type]["day"] = day
+            get_schedule(config)[schedule_type]["time"] = time
             
             # Update Cloud Scheduler job
             job_name = f'{schedule_type}_job'
             create_or_update_scheduler_job(schedule_type, day, time, job_name)
 
-            config["schedules"] = schedules
             save_json_file_to_gcs("config.json", config)
             bot.send_message(message.chat.id, f"Schedule updated: {schedule_type.capitalize()} on {day.capitalize()}, {time}")
 
@@ -95,13 +95,10 @@ def update_schedule(bot: TeleBot, message: Message, schedules: dict, config: dic
             bot.send_message(message.chat.id, f"Error updating schedule: {e}")
             logger.error(f"Error updating schedule: {e}")
 
-def send_current_schedule(bot: TeleBot, message: Message, schedules: dict, ADMIN_GROUP: int) -> None:
-    if message.chat.id == ADMIN_GROUP:
+def send_current_schedule(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    if message.chat.id == get_admin_id(config):
         schedule_info = f"<blockquote><b>Current Schedule:</b></blockquote>\n"
-        for key, value in schedules.items():
-            if key == "poll" and "end" in value:
-                schedule_info += f"<b>{key.capitalize()}:</b> {value['day'].capitalize()}, {value['time']}\n<b>Poll End:</b> {value['end']['day'].capitalize()}, {value['end']['time']}\n"
-            else:
-                schedule_info += f"<b>{key.capitalize()}:</b> {value['day'].capitalize()}, {value['time']}\n"
+        for key, value in get_schedule(config).items():
+            schedule_info += f"<b>{key.capitalize()}:</b> {value['day'].capitalize()}, {value['time']}\n"
         bot.send_message(message.chat.id, schedule_info, parse_mode='HTML')
         

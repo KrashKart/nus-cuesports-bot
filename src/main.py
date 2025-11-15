@@ -11,7 +11,7 @@ from features.confirmation import send_confirmation_message, confirm_payment_que
 from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
 
-from commands.group_management import set_admin_group, set_recre_group, get_group_id
+from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
 from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity
@@ -102,7 +102,7 @@ def main():
 
     #################################################
     #
-    #  Webhook and Schedule functions
+    #  Webhook and Scheduling functions
     #
     #################################################
     @app.route('/webhook', methods=['POST'])
@@ -282,11 +282,11 @@ def main():
     #################################################
     @bot.message_handler(commands=['update_schedule'])
     def update_schedule_handler(message: Message):
-        update_schedule(bot, message, schedules, config, ADMIN_GROUP)
+        update_schedule(bot, message, messages, config)
 
     @bot.message_handler(commands=['current_schedule'])
     def send_current_schedule_handler(message: Message):
-        send_current_schedule(bot, message, schedules, ADMIN_GROUP)
+        send_current_schedule(bot, message, messages, config)
 
     
     #################################################
@@ -296,24 +296,24 @@ def main():
     #################################################
     @bot.message_handler(commands=['view_sessions'])
     def view_sessions_handler(message: Message):
-        view_sessions(bot, message, messages, ADMIN_GROUP)
+        view_sessions(bot, message, messages, config)
 
     @bot.message_handler(commands=['update_sessions'])
     def update_sessions_handler(message: Message):
-        update_sessions(bot, message, messages, ADMIN_GROUP)
+        update_sessions(bot, message, messages, config)
 
     @bot.message_handler(commands=['add_session'])
     def update_session_handler(message: Message):
-        add_session(bot, message, messages, ADMIN_GROUP)
+        add_session(bot, message, messages, config)
 
     @bot.message_handler(commands=['delete_session'])
     def delete_session_handler(message: Message):
-        delete_session(bot, message, messages, ADMIN_GROUP)
+        delete_session(bot, message, messages, config)
     
     @bot.message_handler(commands=['set_capacity'])
     def set_capacity_handler(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            set_capacity(bot, message, messages, ADMIN_GROUP)
+            set_capacity(bot, message, messages, config)
 
     # WIP
     @bot.message_handler(commands=['get_paid'])
@@ -329,22 +329,21 @@ def main():
     #################################################
     @bot.message_handler(commands=['set_recre'])
     def set_recre_handler(message: Message):
-        set_recre_group(bot, message, super_users, groups, config)
+        set_recre_group(bot, message, messages, config)
         bot.send_message(message.chat.id, "Remember to restart the bot to effect changes...")
 
     @bot.message_handler(commands=['set_admin'])
     def set_admin_group_handler(message: Message):
-        set_admin_group(bot, message, super_users, groups, config)
+        set_admin_group(bot, message, messages, config)
         bot.send_message(message.chat.id, "Remember to restart the bot to effect changes...")
     
     @bot.message_handler(commands=['verify_groups'])
     def verify_group_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            bot.send_message(chat_id=message.chat.id, text = f"Admin Group: {ADMIN_GROUP}\nRecre Group: {RECRE_GROUP}")
+        verify_group(bot, message, messages, config)
     
     @bot.message_handler(commands=['get_group_id'])
     def get_group_id_handler(message: Message):
-        get_group_id(bot, message)
+        get_group_id(bot, message, messages, config)
 
     #################################################
     #
@@ -353,23 +352,23 @@ def main():
     #################################################
     @bot.message_handler(commands=['register_super_user'])
     def register_super_user_handler(message: Message):
-        register_super_user(bot, message, super_users, groups, config)
+        register_super_user(bot, message, messages, config)
     
     @bot.message_handler(commands=['unregister_super_user'])
     def unregister_super_user_handler(message: Message):
-        unregister_super_user(bot, message, super_users, groups, config)
+        unregister_super_user(bot, message, messages, config)
 
     @bot.message_handler(commands=['is_super_user'])
     def is_super_user_handler(message: Message):
-        is_super_user(bot, message, super_users, groups, config)
+        is_super_user(bot, message, messages, config)
 
     @bot.message_handler(commands=['list_super_users'])
     def list_super_users_handler(message: Message):
-        list_super_users(bot, message, super_users, groups, config)
+        list_super_users(bot, message, messages, config)
 
     @bot.message_handler(commands=['get_user_id'])
     def get_user_id_handler(message: Message):
-        get_user_id(bot, message, super_users, groups, config)
+        get_user_id(bot, message, messages, config)
 
     #################################################
     #
@@ -378,11 +377,11 @@ def main():
     #################################################
     @bot.message_handler(commands=['send_admin'])
     def send_message_admin_handler(message: Message):
-        send_message_admin(bot, message, groups)
+        send_message_admin(bot, message, messages, config)
     
     @bot.message_handler(commands=['send_recre'])
     def send_message_recre_handler(message: Message):
-        send_message_recre(bot, message, groups)
+        send_message_recre(bot, message, messages, config)
         
     #################################################
     #
@@ -396,7 +395,7 @@ def main():
     create_or_update_scheduler_job("poll", schedules["poll"]["day"], schedules["poll"]["time"], job_name)
 
     job_name = 'end_job'
-    create_or_update_scheduler_job("end", schedules["poll"]["end"]["day"], schedules["poll"]["end"]["time"], job_name)
+    create_or_update_scheduler_job("end", schedules["end"]["day"], schedules["end"]["time"], job_name)
 
     job_name = 'ping_job'
     create_or_update_scheduler_job("ping", schedules["ping"]["day"], schedules["ping"]["time"], job_name)

@@ -13,8 +13,11 @@ The main features are:
 * [Session Management](#session-management)
 * [Group Management](#group-management)
 * [Super User Management](#super-user-management)
+
+Other features to note would be:
 * [Scheduled Ping](#scheduled-ping)
 * [Update ID Caching](#update-id-caching)
+* [Permissions Management](#permissions-management)
 
 > ℹ️ TIP
 > You can view the command format and descriptions in [Commands](commands.md)
@@ -33,13 +36,13 @@ However, the bot will still store available sessions that can be declared active
 
 ## Group Management
 The telebot deals with 4 (types) of groups: ADMIN, RECRE, SPAM TEST and LOGGING.
-* The ADMIN group permits super users to run commands and control bot schedules, sessions, etc.
-* The RECRE group is the official recreational group to send polls to.
-* The SPAM TEST group is for large-volume testing and aims to reduce spam in the ADMIN group.
-* The LOGGING group contains logs raised by the bot during operation.
+* ```ADMIN_GROUP``` permits super users to run commands and control bot schedules, sessions, etc.
+* ```RECRE_GROUP``` is the official recreational group to send polls to.
+* ```SPAM_TEST_GROUP``` is for large-volume testing and aims to reduce spam.
+* ```LOGGING_GROUP``` contains logs raised by the bot during operation.
 
 > ⚠️ IMPORTANT
-> The SPAM TEST group will be deprecated soon. Do transfer testing/logging to the ADMIN or LOGGING group, or create your own extension if possible.
+> The SPAM TEST group is already deprecated. Do your testing/logging in the ADMIN or LOGGING group, or create your own group if necessary. DO NOT use ```SPAM_TEST_GROUP```
 
 ## Super User Management
 Super users are able to set group roles (see [Group Management](#group-management)), which are vital to control command permissions, and view group and user IDs.
@@ -51,3 +54,6 @@ To prevent the bot instance from dying, a scheduled ping is run every 10 minutes
 
 ## Update ID Caching
 As a secondary measure to prevent duplicate messages, the bot stores the highest update ID in a "cache". If the next update ID is less than or equal to the highest update ID, it will not process that update.
+
+## Permissions Management
+To prevent other users from accessing the bot, a very simple system of two permissions is implemented: Admin Group only, and Super Users only. Using commands when one is not in the ADMIN group and/or is not a super user may lead to the bot rejecting the command.

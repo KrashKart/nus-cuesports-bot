@@ -1,5 +1,3 @@
-# gcs_utils.py
-
 import json
 import logging
 from google.cloud import storage
