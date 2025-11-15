@@ -62,4 +62,3 @@ Trivial 💡
   - [X] Super user permissions (command can only be used by super user)
   - [X] Integrate with all commands
   - [X] Standardize command function parameters for perms wrapper
-~- [ ] Add Google Sheets integration~

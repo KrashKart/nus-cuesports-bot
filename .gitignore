@@ -7,9 +7,6 @@ pyvenv.cfg
 # C extensions
 *.so
 
-# json files
-*.json
-
 # Distribution / packaging
 .Python
 build/
