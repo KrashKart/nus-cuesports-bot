@@ -82,7 +82,8 @@ def bump_message(bot, payments):
 def __convert_payment_message(payment_lst):
     markup = InlineKeyboardMarkup()
     message = f"<blockquote><b>Payment List</b></blockquote>"
-    for _user, _val in payment_lst.items():
+    for _user in sorted(payment_lst):
+        _val = payment_lst[_user]
         user_id_lst = eval(_user)
         _user_fullname, _user_username, _userid = user_id_lst[0], user_id_lst[1], user_id_lst[2]
         to_be_paid = len(_val["options"]) * TRAINING_PRICE

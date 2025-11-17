@@ -54,11 +54,12 @@ Trivial 💡
 - [X] Add caching system to prevent duplicate messages/callbacks
 - [X] Fix cold start problem (added scheduled ping)
 - [X] Shift code to commands folder and modularize
-- [ ] Enable scheduled ping only during polling periods
-- [ ] Update help command (command list)
+- [ ] Enable scheduled ping only during polling periods (difficult)
+- [ ] Update help command (temporary fix --- direct to the command links page)
 - [X] Clean and refactor code
 - [X] Create command permissions
   - [X] Admin group permissions (command can only be used in ADMIN group)
   - [X] Super user permissions (command can only be used by super user)
   - [X] Integrate with all commands
   - [X] Standardize command function parameters for perms wrapper
+- [X] Sort payment message by username

@@ -191,7 +191,7 @@ Displays group id of the current ```ADMIN_GROUP``` and ```RECRE_GROUP```. Used f
 👤
 Usage: ```/set_admin```
 
-Sets the group this is called in as the ```ADMIN_GROUP```. ***Only super users can call this***.
+Sets the group this is called in as the ```ADMIN_GROUP```.
 
 Also see the note about changing groups in [```/restart```](#restart).
 
@@ -199,7 +199,7 @@ Also see the note about changing groups in [```/restart```](#restart).
 👤
 Usage: ```/set_recre```
 
-Sets the group this is called in as the ```RECRE_GROUP```. ***Only super users can call this***.
+Sets the group this is called in as the ```RECRE_GROUP```.
 
 Also see the note about changing groups in [```/restart```](#restart).
 
@@ -207,26 +207,26 @@ Also see the note about changing groups in [```/restart```](#restart).
 👤
 Usage: ```/get_group_id```
 
-Get the group id of the group this is called in. ***Only super users can call this***.
+Get the group id of the group this is called in.
 
 ## Super User Management
 ### list_super_users
 🛡️
 Usage: ```/list_super_users```
 
-Displays all super users. ***This can only be called in the ```ADMIN_GROUP```.***
+Displays all super users.
 
 ### is_super_user
 🛡️
 Usage: ```/is_super_user```
 
-Indicates if the user sending the command is a super user. ***This can only be called in the ```ADMIN_GROUP```.***
+Indicates if the user sending the command is a super user.
 
 ### register_super_user
 🛡️
 Usage: ```/register_super_user <nickname>```
 
-Registers the user as a super user under ```<nickname>```. ***This can only be called in the ```ADMIN_GROUP```.***
+Registers the user as a super user under ```<nickname>```.
 
 Nicknames are not checked for duplicates, so do deconflict if necessary.
 
@@ -234,23 +234,23 @@ Nicknames are not checked for duplicates, so do deconflict if necessary.
 🛡️
 Usage: ```/unregister_super_user```
 
-Unregisters the user as a super user. ***This can only be called in the ```ADMIN_GROUP```.***
+Unregisters the user as a super user.
 
 ### get_user_id
 🛡️
 Usage: ```/get_user_id```
 
-Get the user id of the user. ***This can only be called in the ```ADMIN_GROUP```.***
+Get the user id of the user.
 
 ## Miscellaneous
 ### send_admin
 🛡️
 Usage: ```/send_admin [message]```
 
-Sends a message to the ADMIN_GROUP as the bot. Accepts Telegram's bold, underline and italic formats or HTML formatting.
+Sends a message to ```ADMIN_GROUP``` as the bot. Accepts Telegram's bold, underline and italic formats or HTML formatting.
 
 ### send_recre
 🛡️
 Usage: ```/send_recre [message]```
 
-Sends a message to the RECRE_GROUP as the bot. Accepts Telegram's bold, underline and italic formats or HTML formatting.
+Sends a message to ```RECRE_GROUP``` as the bot. Accepts Telegram's bold, underline and italic formats or HTML formatting.

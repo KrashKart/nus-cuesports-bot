@@ -155,7 +155,7 @@ def main():
         try:
             return jsonify({"status": "success"}), 200
         except Exception as e:
-            logger.error(f"Error ending poll: {e}")
+            logger.error(f"Error pinging: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
 
     #################################################
@@ -196,13 +196,7 @@ def main():
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(
                 message.chat.id,
-                text=(
-                    "<blockquote><b>Command List</b></blockquote>"
-                    "/restart [Restart Bot, for rescheduling the polls]\n"
-                    "/update_schedule <b>&lt;prepoll/poll/end&gt; &lt;Day&gt; &lt;Time in 24h&gt;</b>\n"
-                    "/current_schedule [To Check Current Schedule duh]\n"
-                    "/unconfirm <b>&lt;Name/telehandle&gt;</b> (not caps sensitive)"
-                ),
+                text="You can refer to the commands list <a href='https://krashkart.github.io/nus-cuesports-bot/commands'>here</a>!",
                 parse_mode='HTML'
             )
 
