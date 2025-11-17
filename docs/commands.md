@@ -120,7 +120,7 @@ Sends an identical poll to the ```ADMIN_GROUP```. Beware as this shares the same
 
 ### test_end_poll
 🛡️
-Usage: ```/test_end_poll``
+Usage: ```/test_end_poll```
 
 Ends the test poll in the ```ADMIN_GROUP``` and initiates confirmation.
 
