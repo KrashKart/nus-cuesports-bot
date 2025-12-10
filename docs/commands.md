@@ -25,6 +25,7 @@
 - [Scheduling Management](#scheduling-management)
    * [current_schedule](#current_schedule)
    * [update_schedule](#update_schedule)
+   * [update_ping](#update_ping)
 - [Session Management](#session-management)
    * [view_sessions](#view_sessions)
    * [update_sessions](#update_sessions)
@@ -136,6 +137,12 @@ Views the current scheduling datetimes for prepoll, poll and end poll.
 Usage: ```/update_schedule <prepoll/poll/end> <day> <time>```
 
 Updates the scheduling for only one of prepoll, poll and end poll. Days must be entered in full and capitals are optional ("Monday" and "monday" are fine) and time must be entered in 24-hour format with a colon (HH:MM).
+
+### update_ping
+🛡️
+Usage: ```/update_ping <interval in minutes>```
+
+Updates the ping interval, which must be an integer, so the bot will ping at the new interval to prevent cold starts.
 
 ## Session Management
 Here, we define two types of sessions, active and available. Active sessions are sessions that the bot will include in the poll and prepoll messages, while available sessions are sessions that are stored in the bot but are not sent as an official session.

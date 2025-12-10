@@ -63,38 +63,69 @@ def delete_scheduler_job(job_name: str) -> None:
 @_log
 @_admin_group_perms
 def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
-    if message.chat.id == get_admin_id(config):
-        try:
-            command_params = message.text.split()
-            if len(command_params) != 4:
-                bot.send_message(message.chat.id, "Usage: /update_schedule <prepoll/poll/end> <day> <time>")
-                return
-            
-            schedule_type, day, time = command_params[1].lower(), command_params[2], command_params[3]
-            if schedule_type not in ["prepoll", "poll", "end"]:
-                bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
-                return
-            elif not is_valid_day(day):
-                bot.send_message(message.chat.id, "Invalid day. Use 'sunday', 'monday', etc (Lower/Upper case both accepted).")
-                return
-            elif not is_valid_time(time):
-                bot.send_message(message.chat.id, "Invalid time. Time should be in format 'HH:MM'.")
-                return
+    try:
+        command_params = message.text.split()
+        if len(command_params) != 4:
+            bot.send_message(message.chat.id, "Usage: /update_schedule <prepoll/poll/end> <day> <time>")
+            return
+        
+        schedule_type, day, time = command_params[1].lower(), command_params[2], command_params[3]
+        if schedule_type not in ["prepoll", "poll", "end"]:
+            bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
+            return
+        elif not is_valid_day(day):
+            bot.send_message(message.chat.id, "Invalid day. Use 'sunday', 'monday', etc (Lower/Upper case both accepted).")
+            return
+        elif not is_valid_time(time):
+            bot.send_message(message.chat.id, "Invalid time. Time should be in format 'HH:MM'.")
+            return
 
-            get_schedule(config)[schedule_type]["day"] = day
-            get_schedule(config)[schedule_type]["time"] = time
-            
-            # Update Cloud Scheduler job
-            job_name = f'{schedule_type}_job'
-            create_or_update_scheduler_job(schedule_type, day, time, job_name)
+        get_schedule(config)[schedule_type]["day"] = day
+        get_schedule(config)[schedule_type]["time"] = time
+        
+        # Update Cloud Scheduler job
+        job_name = f'{schedule_type}_job'
+        create_or_update_scheduler_job(schedule_type, day, time, job_name)
 
-            save_json_file_to_gcs("config.json", config)
-            bot.send_message(message.chat.id, f"Schedule updated: {schedule_type.capitalize()} on {day.capitalize()}, {time}")
+        save_json_file_to_gcs("config.json", config)
+        bot.send_message(message.chat.id, f"Schedule updated: {schedule_type.capitalize()} on {day.capitalize()}, {time}")
 
-        except Exception as e:
-            bot.send_message(message.chat.id, f"Error updating schedule: {e}")
-            logger.error(f"Error updating schedule: {e}")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Error updating schedule: {e}")
+        logger.error(f"Error updating schedule: {e}")
 
+@_log
+@_admin_group_perms
+def update_ping(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    try:
+        command_params = message.text.split()
+        if len(command_params) != 2:
+            bot.send_message(message.chat.id, "Usage: /update_ping <interval_mins>")
+            return
+        elif not command_params[1].isdigit():
+            bot.send_message(message.chat.id, "Ping interval in minutes must be an integer!")
+            return
+        
+        ping_interval = command_params[1]
+
+        day = get_schedule(config)["ping"]["day"]
+        time_prefix = get_schedule(config)["ping"]["time"].split("/")[0]
+        new_time = time_prefix + "/" + ping_interval
+        get_schedule(config)["ping"]["time"] = new_time
+
+        # Update Cloud Scheduler job
+        job_name = f'ping_job'
+        create_or_update_scheduler_job("ping", day, new_time, job_name)
+
+        save_json_file_to_gcs("config.json", config)
+        bot.send_message(message.chat.id, f"Schedule updated: Ping every {ping_interval} minutes.")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Error updating schedule: {e}")
+        logger.error(f"Error updating schedule: {e}")
+
+@_log
+@_admin_group_perms
 def send_current_schedule(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     if message.chat.id == get_admin_id(config):
         schedule_info = f"<blockquote><b>Current Schedule:</b></blockquote>\n"

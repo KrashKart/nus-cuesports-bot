@@ -12,7 +12,7 @@ from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
 
 from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
-from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job
+from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
 from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity
 from commands.misc import send_message_admin, send_message_recre
@@ -274,14 +274,17 @@ def main():
     #  Scheduling Management
     #
     #################################################
+    @bot.message_handler(commands=['current_schedule'])
+    def send_current_schedule_handler(message: Message):
+        send_current_schedule(bot, message, messages, config)
+        
     @bot.message_handler(commands=['update_schedule'])
     def update_schedule_handler(message: Message):
         update_schedule(bot, message, messages, config)
 
-    @bot.message_handler(commands=['current_schedule'])
-    def send_current_schedule_handler(message: Message):
-        send_current_schedule(bot, message, messages, config)
-
+    @bot.message_handler(commands=['update_ping'])
+    def update_ping_handler(message: Message):
+        update_ping(bot, message, messages, config)
     
     #################################################
     #

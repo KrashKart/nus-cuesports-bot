@@ -17,7 +17,7 @@ In ```messages.json```,
 - Update "Confirmation" > "Google Doc" if necessary
 
 In ```config.json```,
-- Update super users, add the new Bot TD
+- Update super users, add the new Bot TD (in Telegram)
 
 ## TODO
 Important Changes ❗
@@ -53,6 +53,7 @@ Documentation 📚
 Trivial 💡
 - [X] Add caching system to prevent duplicate messages/callbacks
 - [X] Fix cold start problem (added scheduled ping)
+  - [X] Add command to change ping interval
 - [X] Shift code to commands folder and modularize
 - [ ] Enable scheduled ping only during polling periods (difficult)
 - [ ] Update help command (temporary fix --- direct to the command links page)
