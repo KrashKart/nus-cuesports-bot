@@ -1,8 +1,8 @@
-python-dotenv==1.0.1
+python-dotenv==1.1.0
 pytz==2024.1
 schedule==1.2.2
 telebot==0.0.5
-google-cloud-storage==2.10.0
-google-cloud-scheduler==2.13.5
-flask==2.3.2
+google-cloud-storage>=2.14.0
+google-cloud-scheduler>=2.13.5
+flask==3.0.0
 google-api-python-client
