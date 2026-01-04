@@ -27,9 +27,17 @@ def clear_polls(polls: dict) -> None:
 
 def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int) -> None:
     formatted_slots = "\n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
-    payment_handle = messages["Payment Director"]["Handle"]
     payment_director = messages["Payment Director"]["Name"]
-    prepoll_message = messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots).replace("PAYMENT_HANDLE", payment_handle).replace("PAYMENT_DIRECTOR", payment_director)
+    payment_director_handle = messages["Payment Director"]["Handle"]
+    bot_director = messages["Bot Director"]["Name"]
+    bot_director_handle = messages["Bot Director"]["Handle"]
+    
+    prepoll_message = (messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
+                                                        .replace("PAYMENT_HANDLE", payment_director_handle)
+                                                        .replace("PAYMENT_DIRECTOR", payment_director)
+                                                        .replace("BOT_DIRECTOR", bot_director)
+                                                        .replace("BOT_HANDLE", bot_director_handle))
+    
     bot.send_message(group_id, prepoll_message, parse_mode='HTML')
     logger.info(f"Prepoll announcement sent to: {group_id}")
     send_log_message(bot, f"Prepoll started in group {group_id}")

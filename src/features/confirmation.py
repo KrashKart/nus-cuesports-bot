@@ -10,7 +10,7 @@ TRAINING_PRICE = 8
 
 def send_confirmation_message(bot, admin_group, message_ids, payments, messages):
 
-    # Find first N member to fill up max Occupancy
+    # select the first N people that registered
     to_be_confirmed = __find_n_occupancy(message_ids, messages)
 
     # Reformat to_be_confirmed to {user1: {options: [options], paid:False}, user2: {options: [options], paid:False}...}
@@ -18,21 +18,21 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages)
 
     for _fullname_id, training_sess in payments.items():
         user_id_lst = eval(_fullname_id)
-        _user_fullname, _user_username, _userid = user_id_lst[0], user_id_lst[1], user_id_lst[2]
+        _, _, _userid = user_id_lst[0], user_id_lst[1], user_id_lst[2]
         _training_sess = training_sess["options"]
         to_be_paid = len(_training_sess) * TRAINING_PRICE
 
         _message = messages["Confirmation"]["Body"]
         _google_doc = messages["Confirmation"]["Google Doc"]
         _message_format = __message_format(_training_sess)
-        _training_director = messages["Payment Director"]["Name"]
-        _phone_number = messages["Payment Director"]["Phone Number"]
+        _payment_training_director = messages["Payment Director"]["Name"]
+        _payment_phone_number = messages["Payment Director"]["Phone Number"]
 
-        _message = _message.replace("TO_BE_PAID", str(to_be_paid))
-        _message = _message.replace("GOOGLE_DOC", _google_doc)
-        _message = _message.replace("MESSAGE_FORMAT", _message_format)
-        _message = _message.replace("TRAINING_DIRECTOR", _training_director)
-        _message = _message.replace("PHONE_NUMBER", _phone_number)
+        _message = (_message.replace("TO_BE_PAID", str(to_be_paid))
+                            .replace("GOOGLE_DOC", _google_doc)
+                            .replace("MESSAGE_FORMAT", _message_format)
+                            .replace("TRAINING_DIRECTOR", _payment_training_director)
+                            .replace("PHONE_NUMBER", _payment_phone_number))       
 
         try:
             bot.send_message(_userid, _message)
