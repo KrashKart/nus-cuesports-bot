@@ -11,6 +11,7 @@ from features.confirmation import send_confirmation_message, confirm_payment_que
 from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
 
+from commands.command_autocomplete import __register_commands, CMD_LIST
 from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
@@ -82,6 +83,7 @@ def main():
 
     bot = create_bot(api_key)
     send_log_message(bot, f"Bot started")
+    __register_commands(bot, ADMIN_GROUP)
 
     # Persistent data
     polls = load_data_from_gcs("polls.json")
