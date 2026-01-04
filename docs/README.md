@@ -36,6 +36,7 @@ Important Changes ❗
   - [X] Add functionality to change capacities dynamically
   - [X] Enable capacity display in polls
   - [X] Restrict poll confirmation according to session capacity
+- [X] Update to Python 3.14.x in app.yaml
 
 Bugs 🕷️
 - [X] Prevent duplication of sessions during confirmation (using Python sets)
@@ -64,3 +65,6 @@ Trivial 💡
   - [X] Integrate with all commands
   - [X] Standardize command function parameters for perms wrapper
 - [X] Sort payment message by username
+- [X] Add Bot Director details in prepoll message
+- [X] Add autocomplete functionality in admin group only (so idh to keep referring to the commands page)
+- [X] Update requirements.txt to match Python 3.14 (to avoid deprecated pkgutil functions)
