@@ -1,6 +1,7 @@
 Include/
 Lib/
 Scripts/
+cuesports/
 
 __pycache__/
 *.pyc
