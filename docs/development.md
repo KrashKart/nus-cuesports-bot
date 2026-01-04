@@ -23,7 +23,7 @@
 1. If you need to change the ```.json``` files, head to **Buckets**, then go to the ```recreational-deployment.appspot.com``` bucket for the files.
 1. Next, ***test your code***.
 1. Afterwards, head to **Versions** and *delete any unwanted instances*.
-1. Lastly, go to the **Artifact Registry** and head to ```gae-standard``` > ```app/default``` and *delete any unwanted artifacts*.
+1. Lastly, go to the **Artifact Registry** and *delete any unwanted artifacts*. These essentially allow GCP to deploy faster (using caches, build files, etc) and are not needed in the long run. You can consider clearing both folders in ```gae-standard``` and both folders in ```asia.gcr.io```.
 
 If you do not do steps 4 and 5, you could incur additional costs for the project, especially if you do not clear the Artifact Registry (like me).
 
