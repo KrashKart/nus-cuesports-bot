@@ -13,7 +13,10 @@ def _admin_group_perms(function: Callable[..., None]) -> Callable[..., None]:
         if message.chat.id == get_admin_id(config):
             function(bot, message, messages, config)
         else:
-            bot.send_message(message.chat.id, f"You cannot call this command in {message.chat.title}")
+            if not message.chat.title:
+                bot.send_message(message.chat.id, f"You cannot call this command in private chat")
+            else:
+                bot.send_message(message.chat.id, f"You cannot call this command in {message.chat.title}")
     
     return new_function
 
@@ -22,7 +25,7 @@ def _super_user_perms(function: Callable[..., None]) -> Callable[..., None]:
         if message.from_user.id not in get_super_users_id(config):
             function(bot, message, messages, config)
         else:
-            bot.send_message(message.chat.id, f"You ({message.from_user.username}) are not allowed to use this")
+            bot.send_message(message.chat.id, f"You ({message.from_user.username}) are not allowed to call this command")
     
     return new_function
 

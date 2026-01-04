@@ -1,6 +1,6 @@
 import datetime
 
-DAYS = {"sunday": "0",
+DAYS: dict[str, str] = {"sunday": "0",
         "monday": "1",
         "tuesday": "2",
         "wednesday": "3",

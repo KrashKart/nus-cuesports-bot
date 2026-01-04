@@ -1,9 +1,11 @@
 import json
 import telebot
+from telebot import TeleBot
+from typing import Any
 from utils.gcs_utils import load_json_file_from_gcs
 
 # deprecated
-def load_json_file(file_path):
+def load_json_file(file_path: str) -> Any:
     try:
         with open(file_path, "r") as file:
             data = json.load(file)
@@ -13,7 +15,7 @@ def load_json_file(file_path):
     except json.JSONDecodeError:
         raise
 
-def send_log_message(bot, message):
+def send_log_message(bot: TeleBot, message: str) -> None:
     config = load_json_file_from_gcs("config.json")
     logging_group_id = config["groups"]["LOGGING_GROUP"]["id"]
     try:

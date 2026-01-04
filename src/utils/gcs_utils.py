@@ -10,7 +10,7 @@ storage_client = storage.Client()
 bucket_name = "recreational-deployment.appspot.com"
 bucket = storage_client.bucket(bucket_name)
 
-def load_json_file_from_gcs(blob_name):
+def load_json_file_from_gcs(blob_name: str):
     try:
         blob = bucket.blob(blob_name)
         data = json.loads(blob.download_as_string())
@@ -20,7 +20,7 @@ def load_json_file_from_gcs(blob_name):
         logger.error(f"Error loading JSON from GCS: {blob_name}: {e}")
         raise
 
-def save_json_file_to_gcs(blob_name, data):
+def save_json_file_to_gcs(blob_name: str, data: dict):
     try:
         blob = bucket.blob(blob_name)
         blob.upload_from_string(json.dumps(data, indent=4))
