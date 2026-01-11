@@ -11,11 +11,11 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
 
 ## HOTO
 1. Add new Bot TD to the admin group, GCP project, and share GitHub Repo. (New Bot TD needs to install gcloud CLI)
+1. Add new Bot TD as superuser
 1. Give the new Bot TD the .env file.
 1. In ```messages.json```,
   - Change "Payment Director" and "Bot Director" details.
   - Update "Confirmation" > "Google Doc" if necessary.
-1. Add new Bot TD as superuser
 
 ## TODO
 Important Changes ❗
