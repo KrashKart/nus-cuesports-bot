@@ -26,7 +26,9 @@ def clear_polls(polls: dict) -> None:
     polls.clear()
 
 def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int) -> None:
-    formatted_slots = "\n    ".join([f"- <b>{slot}</b>" for slot in messages["Poll"]["Options"]])
+    options = messages["Poll"]["Options"]
+    slots = zip(options.keys(), [option["Capacity"] for option in options.values()])
+    formatted_slots = "\n    ".join([f"- <b>{slot}</b> ({capacity} pax)" for slot, capacity in slots])
     payment_director = messages["Payment Director"]["Name"]
     payment_director_handle = messages["Payment Director"]["Handle"]
     bot_director = messages["Bot Director"]["Name"]

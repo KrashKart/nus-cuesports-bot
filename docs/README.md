@@ -66,3 +66,4 @@ Trivial 💡
 - [X] Add Bot Director details in prepoll message
 - [X] Add autocomplete functionality in admin group only (so idh to keep referring to the commands page)
 - [X] Update requirements.txt to match Python 3.14 (to avoid deprecated pkgutil functions)
+- [X] Add session capacity display to prepoll
