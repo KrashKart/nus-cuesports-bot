@@ -47,15 +47,13 @@ Documentation 📚
 - [X] Format README.md
 - [X] Features page
 - [X] Commands page
-- [ ] Development page (temporarily done?)
+- [X] Development page (updating as the bot is developed, for now it's done)
 
 Trivial 💡
 - [X] Add caching system to prevent duplicate messages/callbacks
 - [X] Fix cold start problem (added scheduled ping)
   - [X] Add command to change ping interval
 - [X] Shift code to commands folder and modularize
-- [ ] Enable scheduled ping only during polling periods (difficult)
-- [ ] Update help command (temporary fix --- direct to the command links page)
 - [X] Clean and refactor code
 - [X] Create command permissions
   - [X] Admin group permissions (command can only be used in ADMIN group)
