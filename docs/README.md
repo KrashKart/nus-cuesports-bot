@@ -17,7 +17,7 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - Change "Payment Director" and "Bot Director" details.
   - Update "Confirmation" > "Google Doc" if necessary.
 
-## TODO
+## TODO (AY25/26)
 Important Changes ❗
 - [X] Add super user functionality
   - [X] Register/deregister super user
