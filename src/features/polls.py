@@ -33,51 +33,22 @@ def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int) -> None:
     payment_director_handle = messages["Payment Director"]["Handle"]
     bot_director = messages["Bot Director"]["Name"]
     bot_director_handle = messages["Bot Director"]["Handle"]
-    
+    location_name = messages["Location"]["Name"]
+    location_building = messages["Location"]["Building"]
+    cost = messages["Cost"]
+
     prepoll_message = (messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
                                                         .replace("PAYMENT_HANDLE", payment_director_handle)
                                                         .replace("PAYMENT_DIRECTOR", payment_director)
                                                         .replace("BOT_DIRECTOR", bot_director)
-                                                        .replace("BOT_HANDLE", bot_director_handle))
+                                                        .replace("BOT_HANDLE", bot_director_handle)
+                                                        .replace("LOCATION_NAME", location_name)
+                                                        .replace("LOCATION_BUILDING", location_building)
+                                                        .replace("COST", cost))
     
     bot.send_message(group_id, prepoll_message, parse_mode='HTML')
     logger.info(f"Prepoll announcement sent to: {group_id}")
-    send_log_message(bot, f"Prepoll started in group {group_id}")
-
-def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict) -> None:
-    poll_id = next(iter(polls))
-    message_id = polls[poll_id]["message_id"]
-    poll_message = load_json_file_from_gcs("poll_message.json")
-    try:
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("Poll ended", callback_data="poll_ended"))
-        try:
-            bot.edit_message_text(chat_id=chat_id,
-                                  message_id=message_id,
-                                  text=poll_message,
-                                  reply_markup=markup,
-                                  parse_mode='HTML')
-            del polls[poll_id]
-            save_json_file_to_gcs("polls.json", polls)
-            logger.info(f"Poll ended in group {chat_id} with id {message_id}")
-            send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}")
-        except Exception as e:
-            print(e)
-
-        send_confirmation_message(bot, admin_id, message_ids, payments, messages)
-
-    except telebot.apihelper.ApiTelegramException as e:
-        logger.error(f"Error ending poll for group {chat_id}: {e}")
-        send_log_message(bot, f"Error ending poll for group {chat_id}: {e}")
-
-        if "message is not modified" in str(e):
-            logger.info("The message was not modified.")
-        elif "message to edit not found" in str(e):
-            logger.info("The message to edit was not found.")
-        elif "bot was kicked from the group chat" in str(e):
-            logger.info("The bot was kicked from the group chat.")
-        else:
-            logger.error(f"Unhandled error: {e}")
+    send_log_message(bot, f"Prepoll started in group {group_id}", config)
 
 def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict) -> None:
     question = messages["Poll"]["Question"]
@@ -85,8 +56,14 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
     options = messages["Poll"]["Options"]
     bot_director = messages["Bot Director"]["Name"]
     bot_director_handle = messages["Bot Director"]["Handle"]
+    location_name = messages["Location"]["Name"]
+    location_building = messages["Location"]["Building"]
+    cost = messages["Cost"]
 
-    body = body.replace("BOT_DIRECTOR", bot_director).replace("BOT_DIR_HANDLE", bot_director_handle)
+    body = (body.replace("BOT_DIRECTOR", bot_director)
+                .replace("BOT_DIR_HANDLE", bot_director_handle)
+                .replace("LOCATION_NAME", location_name)
+                .replace("LOCATION_BUILDING", location_building))
 
     poll_id = f"{group_id}_{int(datetime.now().timestamp())}"  # Create a unique poll_id
     polls[poll_id] = {option: [] for option in options}
@@ -105,7 +82,7 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
 
     sent_message = bot.send_message(group_id, poll_message, reply_markup=markup, parse_mode='HTML')
     polls[poll_id]["message_id"] = sent_message.message_id
-    send_log_message(bot, f"Poll started in group {group_id} with id {sent_message.message_id}")
+    send_log_message(bot, f"Poll started in group {group_id} with id {sent_message.message_id}", config)
     logger.info(f"Poll started in group: {group_id}")
 
     # Save poll data to Google Cloud Storage
@@ -145,8 +122,13 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
     bot_director = messages["Bot Director"]["Name"]
     bot_director_handle = messages["Bot Director"]["Handle"]
     options = messages["Poll"]["Options"]
+    location_name = messages["Location"]["Name"]
+    location_building = messages["Location"]["Building"]
 
-    body = body.replace("BOT_DIRECTOR", bot_director).replace("BOT_DIR_HANDLE", bot_director_handle)
+    body = (body.replace("BOT_DIRECTOR", bot_director)
+                .replace("BOT_DIR_HANDLE", bot_director_handle)
+                .replace("LOCATION_NAME", location_name)
+                .replace("LOCATION_BUILDING", location_building))
     
     poll_message = f"<blockquote><b>{question}</b></blockquote>\n\n"
     poll_message += body
@@ -179,3 +161,39 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
             logger.error(f"Error updating message: {e}")
 
     bot.answer_callback_query(call.id)
+
+
+def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict) -> None:
+    poll_id = next(iter(polls))
+    message_id = polls[poll_id]["message_id"]
+    poll_message = load_json_file_from_gcs("poll_message.json")
+    try:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("Poll ended", callback_data="poll_ended"))
+        try:
+            bot.edit_message_text(chat_id=chat_id,
+                                  message_id=message_id,
+                                  text=poll_message,
+                                  reply_markup=markup,
+                                  parse_mode='HTML')
+            del polls[poll_id]
+            save_json_file_to_gcs("polls.json", polls)
+            logger.info(f"Poll ended in group {chat_id} with id {message_id}")
+            send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}", config)
+        except Exception as e:
+            print(e)
+
+        send_confirmation_message(bot, admin_id, message_ids, payments, messages)
+
+    except telebot.apihelper.ApiTelegramException as e:
+        logger.error(f"Error ending poll for group {chat_id}: {e}")
+        send_log_message(bot, f"Error ending poll for group {chat_id}: {e}", config)
+
+        if "message is not modified" in str(e):
+            logger.info("The message was not modified.")
+        elif "message to edit not found" in str(e):
+            logger.info("The message to edit was not found.")
+        elif "bot was kicked from the group chat" in str(e):
+            logger.info("The bot was kicked from the group chat.")
+        else:
+            logger.error(f"Unhandled error: {e}")

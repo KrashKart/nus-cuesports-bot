@@ -121,3 +121,69 @@ def set_capacity(bot: TeleBot, message: Message, messages: dict, config: dict) -
             bot.send_message(message.chat.id, f"Session capacity updated!\nSession: {sess_name}\nChange: {old_capacity} to {new_capacity}")
         else:
             bot.send_message(message.chat.id, f"Invalid session number! Choose between 1 and {len(options)} inclusive!")
+
+@_log
+@_admin_group_perms
+def set_payment_director(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    command_params = message.text.strip().split()
+    if len(command_params) != 4:
+        bot.send_message(message.chat.id, text = f"Usage: /set_payment_director <name> <handle without @> <mobile no.>")
+    else:
+        _, payment_director_name, payment_director_handle, payment_director_phone = command_params
+        if not payment_director_phone.isdigit() or len(payment_director_phone) != 8:
+            bot.send_message(message.chat.id, text = f"Invalid phone number! Please enter an 8-digit number.")
+            return
+        messages["Payment Director"] = {
+            "Name": payment_director_name,
+            "Handle": f"@{payment_director_handle}",
+            "Phone Number": payment_director_phone
+        }
+        save_json_file_to_gcs("messages.json", messages)
+        bot.send_message(message.chat.id, f"Payment director updated to:\nName: {payment_director_name}\nHandle: {payment_director_handle}\nPhone Number: {payment_director_phone}")
+
+@_log
+@_admin_group_perms
+def set_bot_director(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    command_params = message.text.strip().split()
+    if len(command_params) != 3:
+        bot.send_message(message.chat.id, text = f"Usage: /set_bot_director <name> <handle without @> <mobile no.>")
+    else:
+        _, bot_director_name, bot_director_handle = command_params
+        messages["Bot Director"] = {
+            "Name": bot_director_name,
+            "Handle": f"@{bot_director_handle}"
+        }
+        save_json_file_to_gcs("messages.json", messages)
+        bot.send_message(message.chat.id, f"Bot director updated to:\nName: {bot_director_name}\nHandle: {bot_director_handle}")
+
+@_log
+@_admin_group_perms
+def set_location(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    command, *params = message.text.strip().split()
+    params = " ".join(params).split(",")
+    if len(params) != 2:
+        bot.send_message(message.chat.id, text = f"Usage: /set_location <name>, <building>\nNote: Please separate the name and building with a comma.")
+    else:
+        name, building = params
+        name, building = name.strip(), building.strip()
+        messages["Location"] = {
+            "Name": name,
+            "Building": building
+        }
+        save_json_file_to_gcs("messages.json", messages)
+        bot.send_message(message.chat.id, f"Location updated to:\nName: {name}\nBuilding: {building}")
+
+@_log
+@_admin_group_perms
+def set_cost(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
+    command_params = message.text.strip().split()
+    if len(command_params) != 2:
+        bot.send_message(message.chat.id, text = f"Usage: /set_cost <amount without $>")
+    else:
+        _, cost = command_params
+        if not cost.replace('.', '').isdigit():
+            bot.send_message(message.chat.id, text = f"Invalid cost! Please enter a valid number.")
+            return
+        messages["Cost"] = f"${cost}"
+        save_json_file_to_gcs("messages.json", messages)
+        bot.send_message(message.chat.id, f"Cost updated to: {messages['Cost']}")

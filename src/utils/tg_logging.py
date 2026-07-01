@@ -1,5 +1,6 @@
 import json
 import telebot
+from utils.config_interface import get_log_id
 from telebot import TeleBot
 from typing import Any
 from utils.gcs_utils import load_json_file_from_gcs
@@ -15,9 +16,8 @@ def load_json_file(file_path: str) -> Any:
     except json.JSONDecodeError:
         raise
 
-def send_log_message(bot: TeleBot, message: str) -> None:
-    config = load_json_file_from_gcs("config.json")
-    logging_group_id = config["groups"]["LOGGING_GROUP"]["id"]
+def send_log_message(bot: TeleBot, message: str, config: dict) -> None:
+    logging_group_id = get_log_id(config)
     try:
         bot.send_message(logging_group_id, message)
     except telebot.apihelper.ApiTelegramException as e:

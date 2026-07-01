@@ -32,7 +32,10 @@
    * [add_session](#add_session)
    * [delete_session](#delete_session)
    * [set_capacity](#set_capacity)
-   * [get_paid](#get_paid)
+   * [set_payment_director](#set_payment_director)
+   * [set_bot_director](#set_bot_director)
+   * [set_location](#set_location)
+   * [set_cost](#set_cost)
 - [Group Management](#group-management)
    * [verify_groups](#verify_groups)
    * [set_admin](#set_admin)
@@ -184,8 +187,29 @@ Usage: ```/set_capacity <session index> <capacity>```
 
 Sets the capacity for the session with the index ```<session index>```.
 
-### get_paid
-W.I.P
+### set_payment_director
+🛡️
+Usage: ```/set_payment_director <name> <handle without @> <mobile no.>```
+
+Sets the details for the payment director.
+
+### set_bot_director
+🛡️
+Usage: ```/set_bot_director <name> <handle without @>```
+
+Sets the details for the bot director.
+
+### set_location
+🛡️
+Usage: ```/set_location <name> <building>```
+
+Sets the location for all sessions.
+
+### set_cost
+🛡️
+Usage: ```/set_cost <amount without $>```
+
+Sets the cost per person for all sessions.
 
 ## Group Management
 ### verify_groups

@@ -28,7 +28,7 @@ def register_super_user(bot: TeleBot, message: Message, messages: dict, config: 
         nickname = " ".join(params[1:])
         super_users.append({"id": user_id, "name": nickname})
         save_json_file_to_gcs("config.json", config)
-        send_log_message(bot, f"{nickname}: {user_id} registered as super user")
+        send_log_message(bot, f"{nickname}: {user_id} registered as super user", config)
         bot.send_message(message.chat.id, f"{nickname} has been registered as a super user")
 
 @_log
@@ -43,7 +43,7 @@ def unregister_super_user(bot: TeleBot, message: Message, messages: dict, config
             to_remove = to_remove[0]
             super_users.remove(to_remove)
             save_json_file_to_gcs("config.json", config)
-            send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user")
+            send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user", config)
             bot.send_message(message.chat.id, f"{to_remove['name']} has been deregistered as super user")
 
 @_log

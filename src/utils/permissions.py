@@ -34,7 +34,7 @@ def _log(function: Callable[..., None]) -> Callable[..., None]:
         try:
             function(bot, *args)
         except Exception as e:
-            send_log_message(bot, f"Error in {function.__name__}: {e}")
+            send_log_message(bot, f"Error in {function.__name__}: {e}", config)
             logger.error(f"Error in {function.__name__}: {e}")
     
     return new_function

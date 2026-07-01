@@ -39,9 +39,9 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages)
             logger.info(f"Sending Confirmation Message: {_fullname_id}")
         except telebot.apihelper.ApiTelegramException:
             logger.info(f"User have not started the bot: Unable to initiate conversation with user")
-            send_log_message(bot, f"Unable to send confirmation: {_fullname_id}")
+            send_log_message(bot, f"Unable to send confirmation: {_fullname_id}", config)
 
-    send_log_message(bot, f"Sent confirmations to all poll members")
+    send_log_message(bot, f"Sent confirmations to all poll members", config)
 
     if len(payments) != 0:
         markup, payment_message = __convert_payment_message(payments)

@@ -15,7 +15,7 @@ from commands.command_autocomplete import __register_commands, CMD_LIST
 from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
 from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
-from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity
+from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, set_payment_director, set_bot_director, set_location, set_cost
 from commands.misc import send_message_admin, send_message_recre
 
 from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
@@ -82,7 +82,7 @@ def main():
     RECRE_GROUP = groups.get("RECRE_GROUP", {}).get("id", None)
 
     bot = create_bot(api_key)
-    send_log_message(bot, f"Bot started")
+    send_log_message(bot, f"Bot started", config)
     __register_commands(bot, ADMIN_GROUP)
 
     # Persistent data
@@ -118,7 +118,7 @@ def main():
             else:
                 abort(403)
         except Exception as e:
-            send_log_message(bot, e)
+            send_log_message(bot, e, config)
     
     @app.route('/prepoll', methods=['POST'])
     def scheduled_prepoll():
@@ -184,13 +184,13 @@ def main():
             save_data_to_gcs("messages.json", messages)
             save_data_to_gcs("updates.json", updates)
 
-            send_log_message(bot, f"Bot restart called on {message.chat.id}")
+            send_log_message(bot, f"Bot restart called on {message.chat.id}", config)
             restart_bot()
 
     @bot.message_handler(commands=['restart_no_save'])
     def restart(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            send_log_message(bot, f"Bot restart without save called on {message.chat.id}")
+            send_log_message(bot, f"Bot restart without save called on {message.chat.id}", config)
             restart_bot()
 
     @bot.message_handler(commands=['help', 'command_list'])
@@ -302,7 +302,7 @@ def main():
         update_sessions(bot, message, messages, config)
 
     @bot.message_handler(commands=['add_session'])
-    def update_session_handler(message: Message):
+    def add_session_handler(message: Message):
         add_session(bot, message, messages, config)
 
     @bot.message_handler(commands=['delete_session'])
@@ -313,6 +313,26 @@ def main():
     def set_capacity_handler(message: Message):
         if message.chat.id == ADMIN_GROUP:
             set_capacity(bot, message, messages, config)
+
+    @bot.message_handler(commands=['set_payment_director'])
+    def set_payment_director_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            set_payment_director(bot, message, messages, config)
+
+    @bot.message_handler(commands=['set_bot_director'])
+    def set_bot_director_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            set_bot_director(bot, message, messages, config)
+
+    @bot.message_handler(commands=['set_location'])
+    def set_location_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            set_location(bot, message, messages, config)
+
+    @bot.message_handler(commands=['set_cost'])
+    def set_cost_handler(message: Message):
+        if message.chat.id == ADMIN_GROUP:
+            set_cost(bot, message, messages, config)
 
     # WIP
     @bot.message_handler(commands=['get_paid'])
