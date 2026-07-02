@@ -27,13 +27,15 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages,
         _google_doc = messages["Confirmation"]["Google Doc"]
         _message_format = __message_format(_training_sess)
         _payment_training_director = messages["Payment Director"]["Name"]
+        _payment_handle = messages["Payment Director"]["Handle"]
         _payment_phone_number = messages["Payment Director"]["Phone Number"]
 
         _message = (_message.replace("TO_BE_PAID", f"{to_be_paid:.2f}")
                             .replace("GOOGLE_DOC", _google_doc)
                             .replace("MESSAGE_FORMAT", _message_format)
-                            .replace("TRAINING_DIRECTOR", _payment_training_director)
-                            .replace("PHONE_NUMBER", _payment_phone_number))       
+                            .replace("PAYMENT_DIRECTOR", _payment_training_director)
+                            .replace("PAYMENT_HANDLE", _payment_handle)
+                            .replace("PAYMENT_NUMBER", _payment_phone_number))       
 
         try:
             bot.send_message(_userid, _message)
