@@ -30,9 +30,9 @@ def _super_user_perms(function: Callable[..., None]) -> Callable[..., None]:
     return new_function
 
 def _log(function: Callable[..., None]) -> Callable[..., None]:
-    def new_function(bot: TeleBot, *args) -> None:
+    def new_function(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
         try:
-            function(bot, *args)
+            function(bot, message, messages, config)
         except Exception as e:
             send_log_message(bot, f"Error in {function.__name__}: {e}", config)
             logger.error(f"Error in {function.__name__}: {e}")
