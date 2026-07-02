@@ -123,7 +123,7 @@ def main():
     @app.route('/prepoll', methods=['POST'])
     def scheduled_prepoll():
         try:
-            send_prepoll(bot, messages, RECRE_GROUP)
+            send_prepoll(bot, messages, RECRE_GROUP, config)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             logger.error(f"Error sending prepoll announcement: {e}")
@@ -146,7 +146,7 @@ def main():
     @app.route('/end', methods=['POST'])
     def handle_end_poll():
         try:
-            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages)
+            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages, config)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             logger.error(f"Error ending poll: {e}")
@@ -210,7 +210,7 @@ def main():
     @bot.message_handler(commands=['prepoll'])
     def start_prepoll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            send_prepoll(bot, messages, RECRE_GROUP)
+            send_prepoll(bot, messages, RECRE_GROUP, config)
 
     @bot.message_handler(commands=['poll'])
     def handle_start_poll_announcement(message: Message):
@@ -218,18 +218,18 @@ def main():
             polls.clear()
             message_ids.clear()
             payments.clear()
-            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments)
+            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments, config)
     
     @bot.message_handler(commands=['end_poll'])
     def handle_end_poll(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages)
+            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages, config)
 
     @bot.callback_query_handler(func=lambda call: True)
     def handle_callback_query(call):
         group_id = call.message.chat.id
         if re.search(r'\b\w+\b:\b\w+\b', call.data) or call.data == "poll_ended":
-            callback_query(call, bot, messages, polls, message_ids, group_id)
+            callback_query(call, bot, messages, polls, message_ids, group_id, config)
         else:
             confirm_payment_query(call, bot, payments, group_id)
     
@@ -241,7 +241,7 @@ def main():
     @bot.message_handler(commands=["confirmation"])
     def handle_confirmation_message(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            send_confirmation_message(bot, ADMIN_GROUP, message_ids, payments, messages)
+            send_confirmation_message(bot, ADMIN_GROUP, message_ids, payments, messages, config)
 
     @bot.message_handler(commands=["unconfirm"])
     def handle_unconfirm_message(message: Message):
@@ -256,7 +256,7 @@ def main():
     @bot.message_handler(commands=['test_prepoll'])
     def handle_start_test_prepoll_announcement(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            send_prepoll(bot, messages, ADMIN_GROUP)
+            send_prepoll(bot, messages, ADMIN_GROUP, config)
     
     @bot.message_handler(commands=['test_poll'])
     def handle_start_test_poll_announcement(message: Message):
@@ -264,12 +264,12 @@ def main():
             polls.clear()
             message_ids.clear()
             payments.clear()
-            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, payments)
+            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, payments, config)
     
     @bot.message_handler(commands=['test_end_poll'])
     def handle_test_end_poll(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            end_poll(bot, polls, message_ids, ADMIN_GROUP, ADMIN_GROUP, payments, messages)
+            end_poll(bot, polls, message_ids, ADMIN_GROUP, ADMIN_GROUP, payments, messages, config)
 
     #################################################
     #
