@@ -209,7 +209,7 @@ Sets the location for all sessions.
 🛡️
 Usage: ```/set_cost <amount without $>```
 
-Sets the cost per person for all sessions.
+Sets the cost per person for all sessions. Note that all numbers inputted will be formatted to 2 decimal places regardless of input format, as long as the amount is a number.
 
 ## Group Management
 ### verify_groups
