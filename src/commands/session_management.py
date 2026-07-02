@@ -9,8 +9,8 @@ from telebot.types import Message
 logger = logging.getLogger(__name__)
 DEFAULT_MAX_CAPACITY = 36
 
-@_log
 @_admin_group_perms
+@_log
 def view_sessions(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.split()
     if len(command_params) != 1:
@@ -22,8 +22,8 @@ def view_sessions(bot: TeleBot, message: Message, messages: dict, config: dict) 
         active_options_format = "\n".join([f"{_i + 1}: {k} (Cap {v['Capacity']})" for _i, (k, v) in enumerate(options.items()) if v["Active"]])
         bot.send_message(message.chat.id, f"Active Sessions:\n{active_options_format}\n\nAvailable Sessions:\n{other_options_format}")
 
-@_log
 @_admin_group_perms
+@_log
 def add_session(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
 
@@ -55,8 +55,8 @@ def add_session(bot: TeleBot, message: Message, messages: dict, config: dict) ->
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Session added:\n{new_all_option}")
 
-@_log
 @_admin_group_perms
+@_log
 def delete_session(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     options = messages.get("Poll", {}).get("Options", [])
@@ -75,8 +75,8 @@ def delete_session(bot: TeleBot, message: Message, messages: dict, config: dict)
         else:
             bot.send_message(message.chat.id, f"Enter a valid option number to delete! (From 1 to {len(options)})")
 
-@_log
 @_admin_group_perms
+@_log
 def update_sessions(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.split()
     options = messages.get("Poll", {}).get("Options", [])
@@ -102,8 +102,8 @@ def update_sessions(bot: TeleBot, message: Message, messages: dict, config: dict
         new_option_format = '\n'.join(map(lambda x: f'{x} (Cap {options[x]["Capacity"]})', to_be_activated))
         bot.send_message(message.chat.id, f"Session activated: \n{new_option_format}")
 
-@_log
 @_admin_group_perms
+@_log
 def set_capacity(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     options = messages.get("Poll", {}).get("Options", [])
@@ -122,8 +122,8 @@ def set_capacity(bot: TeleBot, message: Message, messages: dict, config: dict) -
         else:
             bot.send_message(message.chat.id, f"Invalid session number! Choose between 1 and {len(options)} inclusive!")
 
-@_log
 @_admin_group_perms
+@_log
 def set_payment_director(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     if len(command_params) != 4:
@@ -141,8 +141,8 @@ def set_payment_director(bot: TeleBot, message: Message, messages: dict, config:
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Payment director updated to:\nName: {payment_director_name}\nHandle: {payment_director_handle}\nPhone Number: {payment_director_phone}")
 
-@_log
 @_admin_group_perms
+@_log
 def set_bot_director(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     if len(command_params) != 3:
@@ -156,8 +156,8 @@ def set_bot_director(bot: TeleBot, message: Message, messages: dict, config: dic
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Bot director updated to:\nName: {bot_director_name}\nHandle: {bot_director_handle}")
 
-@_log
 @_admin_group_perms
+@_log
 def set_location(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command, *params = message.text.strip().split()
     params = " ".join(params).split(",")
@@ -173,8 +173,8 @@ def set_location(bot: TeleBot, message: Message, messages: dict, config: dict) -
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Location updated to:\nName: {name}\nBuilding: {building}")
 
-@_log
 @_admin_group_perms
+@_log
 def set_cost(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     command_params = message.text.strip().split()
     if len(command_params) != 2:
@@ -184,6 +184,6 @@ def set_cost(bot: TeleBot, message: Message, messages: dict, config: dict) -> No
         if not cost.replace('.', '').isdigit():
             bot.send_message(message.chat.id, text = f"Invalid cost! Please enter a valid number.")
             return
-        messages["Cost"] = f"${cost}"
+        messages["Cost"] = f"{cost:.2f}"
         save_json_file_to_gcs("messages.json", messages)
-        bot.send_message(message.chat.id, f"Cost updated to: {messages['Cost']}")
+        bot.send_message(message.chat.id, f"Cost updated to: ${messages['Cost']}")

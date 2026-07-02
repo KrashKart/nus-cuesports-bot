@@ -9,13 +9,13 @@ from telebot.types import Message
 
 logger = logging.getLogger(__name__)
 
-@_log
 @_admin_group_perms
+@_log
 def get_user_id(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     bot.send_message(message.chat.id, f"Your user id is {message.from_user.id}")
 
-@_log
 @_admin_group_perms
+@_log
 def register_super_user(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     user_id = message.from_user.id
     params = message.text.strip().split()
@@ -31,8 +31,8 @@ def register_super_user(bot: TeleBot, message: Message, messages: dict, config: 
         send_log_message(bot, f"{nickname}: {user_id} registered as super user", config)
         bot.send_message(message.chat.id, f"{nickname} has been registered as a super user")
 
-@_log
 @_admin_group_perms
+@_log
 def unregister_super_user(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
         user_id = message.from_user.id
         to_remove = list(filter(lambda x: x["id"] == user_id, get_super_users(config)))
@@ -46,14 +46,14 @@ def unregister_super_user(bot: TeleBot, message: Message, messages: dict, config
             send_log_message(bot, f"{to_remove['name']}: {to_remove['id']} deregistered as super user", config)
             bot.send_message(message.chat.id, f"{to_remove['name']} has been deregistered as super user")
 
-@_log
 @_admin_group_perms
+@_log
 def is_super_user(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     user_id = message.from_user.id
     bot.send_message(message.chat.id, f"You are{' not' if user_id not in get_super_users_id(config) else ''} a super user.")
 
-@_log
 @_admin_group_perms
+@_log
 def list_super_users(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     super_user_str = "\n".join([f"• {user['name']}: {user['id']}" for user in get_super_users(config)]).strip()
     bot.send_message(message.chat.id, f"Super users are:\n{super_user_str if super_user_str else '• No super users found!'}")

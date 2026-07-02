@@ -60,8 +60,8 @@ def delete_scheduler_job(job_name: str) -> None:
         print(f'Error deleting job: {e}')
         raise
 
-@_log
 @_admin_group_perms
+@_log
 def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
     try:
         command_params = message.text.split()
