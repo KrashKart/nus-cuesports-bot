@@ -17,6 +17,22 @@ Repository containing code for the NUS Cuesports TeleBot. This TeleBot is used t
   - Change "Payment Director" and "Bot Director" details.
   - Update "Confirmation" > "Google Doc" if necessary.
 
+## TODO (AY26/27)
+Important Changes ❗
+- [X] Add director information editing functionality
+  - [X] Edit Payment Director details
+  - [X] Edit Bot Director details
+- [X] Add cost editing functionality
+- [X] Add location editing functionality (including name and building)
+
+Bugs 🕷️
+- [X] Fixed formatting issues regarding the $ character
+- [X] Fixed logging issues not propagating to logging telegram group via config
+
+Trivial 💡
+- [X] Edit permission order, check for super user/admin group before logging error
+- [X] 
+
 ## TODO (AY25/26)
 Important Changes ❗
 - [X] Add super user functionality
