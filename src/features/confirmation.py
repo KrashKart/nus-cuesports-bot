@@ -6,9 +6,10 @@ from utils.tg_logging import send_log_message
 from utils.datetime_utils import DAYS
 
 logger = logging.getLogger(__name__)
-TRAINING_PRICE = 8
 
-def send_confirmation_message(bot, admin_group, message_ids, payments, messages):
+def send_confirmation_message(bot, admin_group, message_ids, payments, messages, config):
+    # price of training session
+    price_per_session = float(messages["Cost"])
 
     # select the first N people that registered
     to_be_confirmed = __find_n_occupancy(message_ids, messages)
@@ -20,7 +21,7 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages)
         user_id_lst = eval(_fullname_id)
         _, _, _userid = user_id_lst[0], user_id_lst[1], user_id_lst[2]
         _training_sess = training_sess["options"]
-        to_be_paid = len(_training_sess) * TRAINING_PRICE
+        to_be_paid = len(_training_sess) * price_per_session
 
         _message = messages["Confirmation"]["Body"]
         _google_doc = messages["Confirmation"]["Google Doc"]
@@ -28,7 +29,7 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages)
         _payment_training_director = messages["Payment Director"]["Name"]
         _payment_phone_number = messages["Payment Director"]["Phone Number"]
 
-        _message = (_message.replace("TO_BE_PAID", str(to_be_paid))
+        _message = (_message.replace("TO_BE_PAID", f"{to_be_paid:.2f}")
                             .replace("GOOGLE_DOC", _google_doc)
                             .replace("MESSAGE_FORMAT", _message_format)
                             .replace("TRAINING_DIRECTOR", _payment_training_director)
@@ -44,7 +45,7 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages)
     send_log_message(bot, f"Sent confirmations to all poll members", config)
 
     if len(payments) != 0:
-        markup, payment_message = __convert_payment_message(payments)
+        markup, payment_message = __convert_payment_message(payments, price_per_session)
         bot.send_message(admin_group, payment_message, reply_markup=markup, parse_mode='HTML')
 
 def confirm_payment_query(call, bot, payments, group_id):
@@ -79,14 +80,14 @@ def bump_message(bot, payments):
         if not _training_sess["paid"]:
             bot.send_message(_userid, "bump")
 
-def __convert_payment_message(payment_lst):
+def __convert_payment_message(payment_lst, price_per_session):
     markup = InlineKeyboardMarkup()
     message = f"<blockquote><b>Payment List</b></blockquote>"
     for _user in sorted(payment_lst):
         _val = payment_lst[_user]
         user_id_lst = eval(_user)
         _user_fullname, _user_username, _userid = user_id_lst[0], user_id_lst[1], user_id_lst[2]
-        to_be_paid = len(_val["options"]) * TRAINING_PRICE
+        to_be_paid = len(_val["options"]) * price_per_session
         if _val["paid"]:
             message += f'{_user_fullname} (@{_user_username}): ${to_be_paid} (Paid)\n'
         else:
