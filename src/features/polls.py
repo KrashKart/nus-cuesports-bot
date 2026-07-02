@@ -25,7 +25,7 @@ def has_started_bot(bot: TeleBot, user_id: str | int, group_id: str | int) -> bo
 def clear_polls(polls: dict) -> None:
     polls.clear()
 
-def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int) -> None:
+def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int, config: dict) -> None:
     options = messages["Poll"]["Options"]
     slots = zip(options.keys(), [option["Capacity"] for option in options.values()])
     formatted_slots = "\n    ".join([f"- <b>{slot}</b> ({capacity} pax)" for slot, capacity in slots])
@@ -50,7 +50,7 @@ def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int) -> None:
     logger.info(f"Prepoll announcement sent to: {group_id}")
     send_log_message(bot, f"Prepoll started in group {group_id}", config)
 
-def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict) -> None:
+def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict, config: dict) -> None:
     question = messages["Poll"]["Question"]
     body = messages["Poll"]["Body"]
     options = messages["Poll"]["Options"]
@@ -61,9 +61,10 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
     cost = messages["Cost"]
 
     body = (body.replace("BOT_DIRECTOR", bot_director)
-                .replace("BOT_DIR_HANDLE", bot_director_handle)
+                .replace("BOT_HANDLE", bot_director_handle)
                 .replace("LOCATION_NAME", location_name)
-                .replace("LOCATION_BUILDING", location_building))
+                .replace("LOCATION_BUILDING", location_building)
+                .replace("COST", cost))
 
     poll_id = f"{group_id}_{int(datetime.now().timestamp())}"  # Create a unique poll_id
     polls[poll_id] = {option: [] for option in options}
@@ -91,7 +92,7 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
     save_json_file_to_gcs("payments.json", payments)
     save_json_file_to_gcs("poll_message.json", poll_message)
 
-def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: dict, message_ids: dict, group_id: str | int) -> None:
+def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dict, message_ids: dict, group_id: str | int, config: dict) -> None:
     if call.data == "poll_ended":
         bot.answer_callback_query(call.id, "The poll has ended. Please wait for next week's poll to be released.", show_alert=True)
         return
@@ -124,11 +125,13 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
     options = messages["Poll"]["Options"]
     location_name = messages["Location"]["Name"]
     location_building = messages["Location"]["Building"]
+    cost = messages["Cost"]
 
     body = (body.replace("BOT_DIRECTOR", bot_director)
-                .replace("BOT_DIR_HANDLE", bot_director_handle)
+                .replace("BOT_HANDLE", bot_director_handle)
                 .replace("LOCATION_NAME", location_name)
-                .replace("LOCATION_BUILDING", location_building))
+                .replace("LOCATION_BUILDING", location_building)
+                .replace("COST", cost))
     
     poll_message = f"<blockquote><b>{question}</b></blockquote>\n\n"
     poll_message += body
@@ -163,7 +166,7 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: Message, polls: 
     bot.answer_callback_query(call.id)
 
 
-def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict) -> None:
+def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict, config: dict) -> None:
     poll_id = next(iter(polls))
     message_id = polls[poll_id]["message_id"]
     poll_message = load_json_file_from_gcs("poll_message.json")
@@ -183,7 +186,7 @@ def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, a
         except Exception as e:
             print(e)
 
-        send_confirmation_message(bot, admin_id, message_ids, payments, messages)
+        send_confirmation_message(bot, admin_id, message_ids, payments, messages, config)
 
     except telebot.apihelper.ApiTelegramException as e:
         logger.error(f"Error ending poll for group {chat_id}: {e}")
