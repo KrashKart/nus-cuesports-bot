@@ -135,7 +135,7 @@ def main():
             polls.clear()
             message_ids.clear()
             payments.clear()
-            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments)
+            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments, config)
             save_data_to_gcs("polls.json", polls)
             save_data_to_gcs("message_ids.json", message_ids)
             return jsonify({"status": "success"}), 200
