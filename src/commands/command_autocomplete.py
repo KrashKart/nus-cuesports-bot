@@ -7,7 +7,7 @@ CMD_LIST: list[BotCommand] = [
     BotCommand("restart_no_save", "Restart the bot without saving states"),
     BotCommand("help", "Displays link to documentation"),
     BotCommand("prepoll", "Trigger prepoll message in recre chat"),
-    BotCommand("poll", "Trigger poll in recrechat"),
+    BotCommand("poll", "Trigger poll in recre chat"),
     BotCommand("end_poll", "End poll in recre chat"),
     BotCommand("confirmation", "Trigger payment confirmation message"),
     BotCommand("unconfirm", "Unconfirm payment for user"),
