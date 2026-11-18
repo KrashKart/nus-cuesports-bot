@@ -15,7 +15,7 @@ def set_admin_group(bot: TeleBot, message: Message, messages: dict, config: dict
     new_admin_group_id = message.chat.id
     new_admin_group_name = message.chat.title if message.chat.type in ["group", "supergroup"] else "Private Chat"
     groups = get_groups(config)
-    groups["id"], groups["name"] = new_admin_group_id, new_admin_group_name
+    groups["ADMIN_GROUP"] = {"id": new_admin_group_id, "name": new_admin_group_name}
     save_json_file_to_gcs("config.json", config)
     send_log_message(bot, f"Admin group updated successfully to {new_admin_group_name} : {new_admin_group_id}.", config)
     logger.info(f"Admin group updated successfully to {new_admin_group_name} : {new_admin_group_id}.")
@@ -26,7 +26,7 @@ def set_recre_group(bot: TeleBot, message: Message, messages: dict, config: dict
     new_recre_group_id = message.chat.id
     new_recre_group_name = message.chat.title if message.chat.type in ["group", "supergroup"] else "Private Chat"
     groups = get_groups(config)
-    groups["id"], groups["name"] = new_recre_group_id, new_recre_group_name
+    groups["RECRE_GROUP"] = {"id": new_recre_group_id, "name": new_recre_group_name}
     save_json_file_to_gcs("config.json", config)
     send_log_message(bot, f"Recreational group updated successfully to {new_recre_group_name} : {new_recre_group_id}.", config)
     logger.info(f"Recreational group updated successfully to {new_recre_group_name} : {new_recre_group_id}.")
