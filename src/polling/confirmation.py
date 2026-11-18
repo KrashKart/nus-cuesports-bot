@@ -2,6 +2,8 @@ import telebot
 import logging
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from state import poll_state
+from state.messages import (get_sessions, get_price_per_session, get_confirmation_template, get_google_doc,
+                            fill_placeholders, payment_director_placeholders)
 from utils.tg_logging import send_log_message
 from utils.datetime_utils import DAYS
 
@@ -9,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def send_confirmation_message(bot, admin_group, message_ids, payments, messages, config):
     # price of training session
-    price_per_session = float(messages["Cost"])
+    price_per_session = get_price_per_session(messages)
 
     # Confirmation DMs go out once per poll. payments is only filled by the first run
     # (and cleared when a new poll starts), so if it has entries the DMs were already
@@ -31,19 +33,12 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages,
         _training_sess = training_sess["options"]
         to_be_paid = len(_training_sess) * price_per_session
 
-        _message = messages["Confirmation"]["Body"]
-        _google_doc = messages["Confirmation"]["Google Doc"]
-        _message_format = __message_format(_training_sess)
-        _payment_training_director = messages["Payment Director"]["Name"]
-        _payment_handle = messages["Payment Director"]["Handle"]
-        _payment_phone_number = messages["Payment Director"]["Phone Number"]
-
-        _message = (_message.replace("TO_BE_PAID", f"{to_be_paid:.2f}")
-                            .replace("GOOGLE_DOC", _google_doc)
-                            .replace("MESSAGE_FORMAT", _message_format)
-                            .replace("PAYMENT_DIRECTOR", _payment_training_director)
-                            .replace("PAYMENT_HANDLE", _payment_handle)
-                            .replace("PAYMENT_NUMBER", _payment_phone_number))       
+        _message = fill_placeholders(get_confirmation_template(messages), {
+            "TO_BE_PAID": f"{to_be_paid:.2f}",
+            "GOOGLE_DOC": get_google_doc(messages),
+            "MESSAGE_FORMAT": __message_format(_training_sess),
+            **payment_director_placeholders(messages),
+        })
 
         try:
             bot.send_message(_userid, _message)
@@ -62,7 +57,7 @@ def __send_payment_list(bot, admin_group, payments, price_per_session):
     bot.send_message(admin_group, payment_message, reply_markup=markup, parse_mode='HTML')
 
 def confirm_payment_query(call, bot, payments, group_id, messages):
-    price_per_session = float(messages["Cost"])
+    price_per_session = get_price_per_session(messages)
     user_id = call.data
     for user_name in payments.keys():
         if user_id == str(eval(user_name)[2]):
@@ -137,7 +132,7 @@ def __find_session_overlap(message_ids, payments):
 
 def __find_n_occupancy(message_ids, messages):
     to_be_confirmed = {}
-    options = messages["Poll"]["Options"]
+    options = get_sessions(messages)
     for _key, _value in message_ids.items():
         # First N voters per session. message_ids is left as-is: it used to be trimmed
         # down to the waitlist here, which is what let a second /confirmation confirm it.

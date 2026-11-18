@@ -4,6 +4,9 @@ import pytz
 from datetime import datetime
 from polling.confirmation import send_confirmation_message
 from state import poll_state
+from state.messages import (get_sessions, get_active_sessions, get_prepoll_template, get_poll_question,
+                            get_poll_body_template, fill_placeholders, poll_detail_placeholders,
+                            payment_director_placeholders)
 from utils.tg_logging import send_log_message
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
 from telebot import TeleBot
@@ -48,41 +51,23 @@ def clear_polls(polls: dict) -> None:
     polls.clear()
 
 def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int, config: dict) -> None:
-    options = messages["Poll"]["Options"]
-    slots = zip(options.keys(), [option["Capacity"] for option in options.values()])
-    formatted_slots = "\n    ".join([f"- <b>{slot}</b> ({capacity} pax)" for slot, capacity in slots])
-    payment_director = messages["Payment Director"]["Name"]
-    payment_director_handle = messages["Payment Director"]["Handle"]
-    bot_director = messages["Bot Director"]["Name"]
-    bot_director_handle = messages["Bot Director"]["Handle"]
-    location_name = messages["Location"]["Name"]
-    location_building = messages["Location"]["Building"]
-    cost = messages["Cost"]
+    sessions = get_sessions(messages)
+    formatted_slots = "\n    ".join(f"- <b>{name}</b> ({session['Capacity']} pax)" for name, session in sessions.items())
+    prepoll_message = fill_placeholders(get_prepoll_template(messages), {
+        "POLL_OPTIONS": formatted_slots,
+        **payment_director_placeholders(messages),
+        **poll_detail_placeholders(messages),
+    })
 
-    prepoll_message = (messages["Prepoll Announcement"].replace("POLL_OPTIONS", formatted_slots)
-                                                        .replace("PAYMENT_HANDLE", payment_director_handle)
-                                                        .replace("PAYMENT_DIRECTOR", payment_director)
-                                                        .replace("BOT_DIRECTOR", bot_director)
-                                                        .replace("BOT_HANDLE", bot_director_handle)
-                                                        .replace("LOCATION_NAME", location_name)
-                                                        .replace("LOCATION_BUILDING", location_building)
-                                                        .replace("COST", cost))
-    
     bot.send_message(group_id, prepoll_message, parse_mode='HTML')
     logger.info(f"Prepoll announcement sent to: {group_id}")
     send_log_message(bot, f"Prepoll started in group {group_id}", config)
 
-def _poll_body(messages: dict) -> str:
-    return (messages["Poll"]["Body"].replace("BOT_DIRECTOR", messages["Bot Director"]["Name"])
-                                    .replace("BOT_HANDLE", messages["Bot Director"]["Handle"])
-                                    .replace("LOCATION_NAME", messages["Location"]["Name"])
-                                    .replace("LOCATION_BUILDING", messages["Location"]["Building"])
-                                    .replace("COST", messages["Cost"]))
-
 def render_poll_message(messages: dict, poll: dict) -> str:
     """Build the poll message from the current votes, so the text never needs to be stored."""
-    options = messages["Poll"]["Options"]
-    text = f"<blockquote><b>{messages['Poll']['Question']}</b></blockquote>\n\n" + _poll_body(messages)
+    options = get_sessions(messages)
+    body = fill_placeholders(get_poll_body_template(messages), poll_detail_placeholders(messages))
+    text = f"<blockquote><b>{get_poll_question(messages)}</b></blockquote>\n\n" + body
     for sess_name, names in poll.items():
         if sess_name == "message_id":
             continue
@@ -94,8 +79,7 @@ def render_poll_message(messages: dict, poll: dict) -> str:
     return text
 
 def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict, config: dict) -> None:
-    options = messages["Poll"]["Options"]
-    active = [name for name, option in options.items() if option["Active"]]
+    active = get_active_sessions(messages)
 
     poll_id = f"{group_id}_{int(datetime.now().timestamp())}"  # Create a unique poll_id
     # Only active sessions (inactive ones used to appear in the message after the first vote)

@@ -12,6 +12,7 @@ from functools import wraps
 from polling.poll import send_prepoll, end_poll, start_poll_announcement, callback_query, remember_started_user
 from polling.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
 from state import poll_state
+from state.messages import MESSAGES_FILE
 
 from handlers.dedupe import update_with_cache
 from handlers.command_menu import __register_commands, CMD_LIST
@@ -101,7 +102,7 @@ def main():
 
     # Load config and messages
     config = load_data_from_gcs("config.json")
-    messages = load_data_from_gcs("messages.json")
+    messages = load_data_from_gcs(MESSAGES_FILE)
     groups = config.get("groups", {})
     schedules = config.get("schedules", {})
     # The keep-alive ping was removed (min_instances: 1 keeps the bot running instead).
@@ -232,7 +233,7 @@ def main():
         if message.chat.id == ADMIN_GROUP:
             poll_state.flush(force=True)
             save_data_to_gcs("config.json", config)
-            save_data_to_gcs("messages.json", messages)
+            save_data_to_gcs(MESSAGES_FILE, messages)
 
             send_log_message(bot, f"Bot restart called on {message.chat.id}", config)
             restart_bot()
