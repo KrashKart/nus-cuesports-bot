@@ -43,6 +43,7 @@ COMMANDS = [
     Command("restart", "Restart the bot", bot_control.restart),
     Command("restart_no_save", "Restart the bot without saving states", bot_control.restart_no_save),
     Command("help", "Displays link to documentation", bot_control.help_command, aliases=("command_list",)),
+    
     # Polls and confirmation
     Command("prepoll", "Trigger prepoll message in recre chat", poll_commands.prepoll_command),
     Command("poll", "Trigger poll in recre chat", poll_commands.poll_command),
@@ -52,9 +53,11 @@ COMMANDS = [
     Command("test_prepoll", "Trigger prepoll message in admin chat", poll_commands.test_prepoll_command),
     Command("test_poll", "Trigger poll in admin chat", poll_commands.test_poll_command),
     Command("test_end_poll", "End poll in admin chat", poll_commands.test_end_poll_command),
+    
     # Schedules
     Command("current_schedule", "View current schedule", send_current_schedule),
     Command("update_schedule", "Update current schedule", update_schedule),
+    
     # Poll settings
     Command("view_sessions", "View status of all sessions", view_sessions),
     Command("update_sessions", "Update active sessions", update_sessions),
@@ -65,17 +68,20 @@ COMMANDS = [
     Command("set_bot_director", "Set bot director", set_bot_director),
     Command("set_location", "Set location for sessions", set_location),
     Command("set_cost", "Set cost for all sessions", set_cost),
+    
     # Groups
     Command("verify_groups", "Get admin and recre group id", verify_group),
     Command("set_admin", "Set admin group", _set_admin_and_move_menu),
     Command("set_recre", "Set recre group", set_recre_group),
     Command("get_group_id", "Get group id of current group", get_group_id),
+    
     # Super users
     Command("list_super_users", "List all super users and their ids", list_super_users),
     Command("is_super_user", "Check if you are a super user", is_super_user),
     Command("register_super_user", "Register yourself under an alias", register_super_user),
     Command("unregister_super_user", "Unregister a super user", unregister_super_user),
     Command("get_user_id", "Get your user id", get_user_id),
+    
     # Broadcast
     Command("send_admin", "Send a message to admin group as the bot", send_message_admin),
     Command("send_recre", "Send a message to recre group as the bot", send_message_recre),
