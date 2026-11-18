@@ -6,17 +6,17 @@ import re
 import pytz
 import sys
 import hmac
-import threading
+import signal
 from functools import wraps
 
-from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, remember_started_user, STARTED_USERS_FILE
+from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, remember_started_user
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
-from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
+from utils import poll_state
 
 from commands.command_autocomplete import __register_commands, CMD_LIST
 from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
-from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping, SCHEDULER_HEADER, SCHEDULER_SECRET
+from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, SCHEDULER_HEADER, SCHEDULER_SECRET
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
 from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, set_payment_director, set_bot_director, set_location, set_cost
 from commands.misc import send_message_admin, send_message_recre
@@ -68,12 +68,19 @@ def create_bot(api_key):
     return telebot.TeleBot(api_key, threaded=False)
 
 # Every change to poll/payment/config state happens while holding this lock
-# (webhook updates and scheduled routes). RLock so a handler can call another safely.
-state_lock = threading.RLock()
+# (webhook updates and scheduled routes). Shared with the background saver in poll_state.
+state_lock = poll_state.state_lock
 
 def restart_bot():
-    python = sys.executable
-    os.execl(python, python, *sys.argv)
+    if "gunicorn" in os.path.basename(sys.argv[0]):
+        # Under gunicorn (production): stop this worker. Gunicorn lets the current request
+        # finish, the worker exits (saving poll state unless saving was disabled), and
+        # gunicorn starts a fresh worker, which reloads everything from storage.
+        os.kill(os.getpid(), signal.SIGTERM)
+    else:
+        # Run directly (python src/main.py): replace this process with a new one
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
 
 def load_required_env(name):
     value = os.getenv(name)
@@ -97,6 +104,9 @@ def main():
     messages = load_data_from_gcs("messages.json")
     groups = config.get("groups", {})
     schedules = config.get("schedules", {})
+    # The keep-alive ping was removed (min_instances: 1 keeps the bot running instead).
+    # Dropping it here also removes it from config.json the next time config is saved.
+    schedules.pop("ping", None)
     super_users = config.get("super_users", [])
 
     ADMIN_GROUP = groups.get("ADMIN_GROUP", {}).get("id", None)
@@ -106,14 +116,15 @@ def main():
     send_log_message(bot, f"Bot started", config)
     __register_commands(bot, ADMIN_GROUP)
 
-    # Persistent data
-    polls = load_data_from_gcs("polls.json")
-    message_ids = load_data_from_gcs("message_ids.json")
-    payments = load_data_from_gcs("payments.json")
-    updates = load_data_from_gcs("updates.json")
-    # Stored as a JSON list; a set makes "has this user started the bot?" an O(1) lookup.
-    # Missing file -> load_data_from_gcs returns {} -> empty set.
-    started_users = set(load_data_from_gcs(STARTED_USERS_FILE) or [])
+    # Poll state (votes, payments, started users, last update ID) lives in one file,
+    # poll_state.json, saved in the background. See utils/poll_state.py.
+    poll_state.load()
+    poll_state.start(bot)
+    polls = poll_state.polls
+    message_ids = poll_state.message_ids
+    payments = poll_state.payments
+    updates = poll_state.updates
+    started_users = poll_state.started_users  # a set: O(1) "can the bot DM this user?" lookups
 
     # Initialize Flask app
     app = Flask(__name__)
@@ -129,7 +140,10 @@ def main():
 
     # Webhook setup: Telegram will send WEBHOOK_SECRET in a header on every update
     bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL, secret_token=WEBHOOK_SECRET)
+    # max_connections=1: Telegram sends one update at a time, in order. With the default (40
+    # in parallel) updates could arrive out of order, and update_with_cache would drop any
+    # whose ID is lower than one already processed, e.g. a vote.
+    bot.set_webhook(url=WEBHOOK_URL, secret_token=WEBHOOK_SECRET, max_connections=1)
 
     def scheduler_only(route):
         @wraps(route)  # keeps each route's own name; Flask needs unique endpoint names
@@ -180,8 +194,6 @@ def main():
             message_ids.clear()
             payments.clear()
             start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments, config)
-            save_data_to_gcs("polls.json", polls)
-            save_data_to_gcs("message_ids.json", message_ids)
             return jsonify({"status": "success"}), 200
         except Exception as e:
             logger.error(f"Error starting poll: {e}")
@@ -197,15 +209,6 @@ def main():
             logger.error(f"Error ending poll: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
     
-    @app.route('/ping', methods=['POST'])
-    @scheduler_only
-    def handle_ping():
-        try:
-            return jsonify({"status": "success"}), 200
-        except Exception as e:
-            logger.error(f"Error pinging: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
-
     #################################################
     #
     #  Bot Operations
@@ -227,13 +230,9 @@ def main():
     @bot.message_handler(commands=['restart'])
     def restart(message: Message):
         if message.chat.id == ADMIN_GROUP:
-            save_data_to_gcs("polls.json", polls)
-            save_data_to_gcs("message_ids.json", message_ids)
-            save_data_to_gcs("payments.json", payments)
+            poll_state.flush(force=True)
             save_data_to_gcs("config.json", config)
             save_data_to_gcs("messages.json", messages)
-            save_data_to_gcs("updates.json", updates)
-            save_data_to_gcs(STARTED_USERS_FILE, sorted(started_users))
 
             send_log_message(bot, f"Bot restart called on {message.chat.id}", config)
             restart_bot()
@@ -241,6 +240,8 @@ def main():
     @bot.message_handler(commands=['restart_no_save'])
     def restart_no_save(message: Message):
         if message.chat.id == ADMIN_GROUP:
+            # Stop all saving first, so hand-edited files in the bucket are what gets reloaded
+            poll_state.disable_saving()
             send_log_message(bot, f"Bot restart without save called on {message.chat.id}", config)
             restart_bot()
 
@@ -335,10 +336,6 @@ def main():
     def update_schedule_handler(message: Message):
         update_schedule(bot, message, messages, config)
 
-    @bot.message_handler(commands=['update_ping'])
-    def update_ping_handler(message: Message):
-        update_ping(bot, message, messages, config)
-    
     #################################################
     #
     #  Session Management
@@ -385,12 +382,6 @@ def main():
         if message.chat.id == ADMIN_GROUP:
             set_cost(bot, message, messages, config)
 
-    # WIP
-    @bot.message_handler(commands=['get_paid'])
-    def get_paid_list_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            read_paid_telegrams(bot, message, ADMIN_GROUP)
-            
 
     #################################################
     #
@@ -466,9 +457,6 @@ def main():
 
     job_name = 'end_job'
     create_or_update_scheduler_job("end", schedules["end"]["day"], schedules["end"]["time"], job_name)
-
-    job_name = 'ping_job'
-    create_or_update_scheduler_job("ping", schedules["ping"]["day"], schedules["ping"]["time"], job_name)
 
     logger.info("Bot started.")
     return app

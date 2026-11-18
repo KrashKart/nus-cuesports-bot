@@ -37,6 +37,3 @@ def get_poll(config: dict) -> dict:
 
 def get_end(config: dict) -> dict:
     return get_schedule(config).get("end", {})
-
-def get_ping(config: dict) -> dict:
-    return get_schedule(config).get("ping", {})

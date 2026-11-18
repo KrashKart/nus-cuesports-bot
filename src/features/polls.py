@@ -3,7 +3,7 @@ import logging
 import pytz
 from datetime import datetime
 from features.confirmation import send_confirmation_message
-from utils.gcs_utils import save_json_file_to_gcs, load_json_file_from_gcs
+from utils import poll_state
 from utils.tg_logging import send_log_message
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
 from telebot import TeleBot
@@ -11,19 +11,12 @@ from telebot import TeleBot
 logger = logging.getLogger(__name__)
 singapore_tz = pytz.timezone("Asia/Singapore")
 
-STARTED_USERS_FILE = "started_users.json"
-
 def remember_started_user(started_users: set, user_id: int) -> None:
-    """Record that the bot can DM this user, and save it so it survives restarts."""
+    """Record that the bot can DM this user. Saved with the rest of the poll state."""
     if user_id in started_users:
         return
     started_users.add(user_id)
-    try:
-        # Saved as a JSON list (JSON has no set type); main.py turns it back into a set on startup
-        save_json_file_to_gcs(STARTED_USERS_FILE, sorted(started_users))
-    except Exception as e:
-        # Still remembered in memory; the next successful save will include this user
-        logger.error(f"Could not save {STARTED_USERS_FILE}: {e}")
+    poll_state.mark_dirty()
 
 def can_dm_user(bot: TeleBot, user_id: int, started_users: set) -> bool:
     """True if the bot can DM this user (needed later for confirmation messages).
@@ -79,47 +72,47 @@ def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int, config: dict
     logger.info(f"Prepoll announcement sent to: {group_id}")
     send_log_message(bot, f"Prepoll started in group {group_id}", config)
 
-def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict, config: dict) -> None:
-    question = messages["Poll"]["Question"]
-    body = messages["Poll"]["Body"]
-    options = messages["Poll"]["Options"]
-    bot_director = messages["Bot Director"]["Name"]
-    bot_director_handle = messages["Bot Director"]["Handle"]
-    location_name = messages["Location"]["Name"]
-    location_building = messages["Location"]["Building"]
-    cost = messages["Cost"]
+def _poll_body(messages: dict) -> str:
+    return (messages["Poll"]["Body"].replace("BOT_DIRECTOR", messages["Bot Director"]["Name"])
+                                    .replace("BOT_HANDLE", messages["Bot Director"]["Handle"])
+                                    .replace("LOCATION_NAME", messages["Location"]["Name"])
+                                    .replace("LOCATION_BUILDING", messages["Location"]["Building"])
+                                    .replace("COST", messages["Cost"]))
 
-    body = (body.replace("BOT_DIRECTOR", bot_director)
-                .replace("BOT_HANDLE", bot_director_handle)
-                .replace("LOCATION_NAME", location_name)
-                .replace("LOCATION_BUILDING", location_building)
-                .replace("COST", cost))
+def render_poll_message(messages: dict, poll: dict) -> str:
+    """Build the poll message from the current votes, so the text never needs to be stored."""
+    options = messages["Poll"]["Options"]
+    text = f"<blockquote><b>{messages['Poll']['Question']}</b></blockquote>\n\n" + _poll_body(messages)
+    for sess_name, names in poll.items():
+        if sess_name == "message_id":
+            continue
+        # .get: a session deleted mid-poll shouldn't break the message
+        capacity = options.get(sess_name, {}).get("Capacity", "?")
+        text += f"<blockquote><b>{sess_name}</b> (👤 {len(names)}/{capacity})</blockquote>"
+        text += ("\n".join(names) + "\n") if names else "No votes yet\n"
+        text += "\n"
+    return text
+
+def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id: str | int, message_ids: dict, payments: dict, config: dict) -> None:
+    options = messages["Poll"]["Options"]
+    active = [name for name, option in options.items() if option["Active"]]
 
     poll_id = f"{group_id}_{int(datetime.now().timestamp())}"  # Create a unique poll_id
-    polls[poll_id] = {option: [] for option in options}
+    # Only active sessions (inactive ones used to appear in the message after the first vote)
+    polls[poll_id] = {name: [] for name in active}
 
     markup = InlineKeyboardMarkup()
+    for name in active:
+        message_ids[name] = []
+        markup.add(InlineKeyboardButton(name, callback_data=f"{poll_id}:{name}"))
 
-    poll_message = f"<blockquote><b>{question}</b></blockquote>"
-    poll_message += body
-
-    for k, v in options.items():
-        if v["Active"]:
-            message_ids[k] = []
-            markup.add(InlineKeyboardButton(k, callback_data=f"{poll_id}:{k}"))
-            poll_message += f"<blockquote><b>{k}</b> (👤 0/{v['Capacity']})</blockquote>"
-            poll_message += "No votes yet\n\n"
-
+    poll_message = render_poll_message(messages, polls[poll_id])
     sent_message = bot.send_message(group_id, poll_message, reply_markup=markup, parse_mode='HTML')
     polls[poll_id]["message_id"] = sent_message.message_id
     send_log_message(bot, f"Poll started in group {group_id} with id {sent_message.message_id}", config)
     logger.info(f"Poll started in group: {group_id}")
 
-    # Save poll data to Google Cloud Storage
-    save_json_file_to_gcs("polls.json", polls)
-    save_json_file_to_gcs("message_ids.json", message_ids)
-    save_json_file_to_gcs("payments.json", payments)
-    save_json_file_to_gcs("poll_message.json", poll_message)
+    poll_state.mark_dirty()
 
 def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dict, message_ids: dict, group_id: str | int, config: dict, started_users: set) -> None:
     if call.data == "poll_ended":
@@ -127,6 +120,11 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
         return
 
     poll_id, option = call.data.split(":")
+    if poll_id not in polls or option not in polls[poll_id]:
+        # A button on an old or replaced poll message
+        bot.answer_callback_query(call.id, "This poll has closed.", show_alert=True)
+        return
+
     user = call.from_user
     user_id_lst = str([user.full_name, user.username, user.id])
     user_name = f"{user.full_name} (@{user.username})" if user.username else user.full_name
@@ -149,74 +147,37 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
         polls[poll_id][option].append(user_name)
         message_ids[option].append(user_id_lst)
 
-    question = messages["Poll"]["Question"]
-    body = messages["Poll"]["Body"]
-    bot_director = messages["Bot Director"]["Name"]
-    bot_director_handle = messages["Bot Director"]["Handle"]
-    options = messages["Poll"]["Options"]
-    location_name = messages["Location"]["Name"]
-    location_building = messages["Location"]["Building"]
-    cost = messages["Cost"]
+    # Saving and the message edit happen in the background (utils/poll_state.py),
+    # batched so a burst of votes doesn't hit Cloud Storage or Telegram limits
+    poll_state.mark_dirty()
+    poll_state.queue_edit(call.message.chat.id, call.message.message_id,
+                          render_poll_message(messages, polls[poll_id]), call.message.reply_markup)
 
-    body = (body.replace("BOT_DIRECTOR", bot_director)
-                .replace("BOT_HANDLE", bot_director_handle)
-                .replace("LOCATION_NAME", location_name)
-                .replace("LOCATION_BUILDING", location_building)
-                .replace("COST", cost))
-    
-    poll_message = f"<blockquote><b>{question}</b></blockquote>\n\n"
-    poll_message += body
-
-    for sess_name, names in polls[poll_id].items():
-        if sess_name == "message_id":
-            continue
-        count = len(names)
-        poll_message += f"<blockquote><b>{sess_name}</b> (👤 {count}/{options[sess_name]['Capacity']})</blockquote>"
-        if names:
-            poll_message += "\n".join(names) + "\n"
-        else:
-            poll_message += "No votes yet\n"
-        poll_message += "\n"
-
-    save_json_file_to_gcs("polls.json", polls)
-    save_json_file_to_gcs("message_ids.json", message_ids)
-    save_json_file_to_gcs("poll_message.json", poll_message)
-
-    try:
-        bot.edit_message_text(chat_id=call.message.chat.id,
-                              message_id=call.message.message_id,
-                              text=poll_message,
-                              reply_markup=call.message.reply_markup,
-                              parse_mode='HTML')
-    except telebot.apihelper.ApiTelegramException as e:
-        if "message is not modified" in str(e):
-            logger.info("No changes to update.")
-        else:
-            logger.error(f"Error updating message: {e}")
-
-    bot.answer_callback_query(call.id)
+    # Answer straight away so the button stops spinning; the message catches up within a few seconds
+    bot.answer_callback_query(call.id, f"Removed from {option}" if is_removing else f"Added to {option}")
 
 
 def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict, config: dict) -> None:
-    poll_id = next(iter(polls))
-    message_id = polls[poll_id]["message_id"]
-    poll_message = load_json_file_from_gcs("poll_message.json")
-    try:
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("Poll ended", callback_data="poll_ended"))
-        try:
-            bot.edit_message_text(chat_id=chat_id,
-                                  message_id=message_id,
-                                  text=poll_message,
-                                  reply_markup=markup,
-                                  parse_mode='HTML')
-            del polls[poll_id]
-            save_json_file_to_gcs("polls.json", polls)
-            logger.info(f"Poll ended in group {chat_id} with id {message_id}")
-            send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}", config)
-        except Exception as e:
-            print(e)
+    if not polls:
+        logger.info("end_poll called but there is no open poll")
+        send_log_message(bot, "End poll called, but there is no open poll", config)
+        return
 
+    poll_id = next(iter(polls))
+    poll = polls.pop(poll_id)
+    message_id = poll["message_id"]
+
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Poll ended", callback_data="poll_ended"))
+    # Replaces any vote edit still waiting for this message, and flush sends it right away.
+    # Any later clicks on the old buttons get "This poll has closed."
+    poll_state.queue_edit(chat_id, message_id, render_poll_message(messages, poll), markup)
+    poll_state.mark_dirty()
+    poll_state.flush(force=True)
+    logger.info(f"Poll ended in group {chat_id} with id {message_id}")
+    send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}", config)
+
+    try:
         send_confirmation_message(bot, admin_id, message_ids, payments, messages, config)
 
     except telebot.apihelper.ApiTelegramException as e:

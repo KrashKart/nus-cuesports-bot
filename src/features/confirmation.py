@@ -1,7 +1,7 @@
 import telebot
 import logging
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
-from utils.gcs_utils import save_json_file_to_gcs
+from utils import poll_state
 from utils.tg_logging import send_log_message
 from utils.datetime_utils import DAYS
 
@@ -69,9 +69,9 @@ def confirm_payment_query(call, bot, payments, group_id, messages):
             payments[user_name]["paid"] = True
             break
 
+    poll_state.mark_dirty()
     markup, message = __convert_payment_message(payments, price_per_session)
     bot.edit_message_text(chat_id = group_id, message_id=call.message.message_id, text = message, reply_markup=markup, parse_mode='HTML')
-    save_json_file_to_gcs("payments.json", payments)
 
 def unconfirm_payment(bot, message, payments, ADMIN_GROUP):
     flag = False
@@ -84,7 +84,7 @@ def unconfirm_payment(bot, message, payments, ADMIN_GROUP):
     if flag:
         markup, payment_message = __convert_payment_message(payments)
         bot.send_message(ADMIN_GROUP, payment_message, reply_markup=markup, parse_mode='HTML')
-        save_json_file_to_gcs("payments.json", payments)
+        poll_state.mark_dirty()
     else:
         bot.send_message(ADMIN_GROUP, text = f"Unable to unconfirm payment: {user}")
 
@@ -132,20 +132,17 @@ def __find_session_overlap(message_ids, payments):
     for _user, v in payments.items():
         v["options"] = list(v["options"])
         payments[_user] = v
-    save_json_file_to_gcs("payments.json", payments)
+    poll_state.mark_dirty()
 
 
 def __find_n_occupancy(message_ids, messages):
     to_be_confirmed = {}
     options = messages["Poll"]["Options"]
     for _key, _value in message_ids.items():
+        # First N voters per session. message_ids is left as-is: it used to be trimmed
+        # down to the waitlist here, which is what let a second /confirmation confirm it.
         _sess_limit = options[_key]["Capacity"]
-        if len(_value) >= _sess_limit:
-            to_be_confirmed[_key] = _value[:_sess_limit]
-            message_ids[_key] = _value[_sess_limit:len(_value)]
-        else:
-            to_be_confirmed[_key] = _value
-            message_ids[_key] = []
+        to_be_confirmed[_key] = _value[:_sess_limit]
     return to_be_confirmed
 
 

@@ -15,8 +15,9 @@ The main features are:
 * [Super User Management](#super-user-management)
 
 Other features to note would be:
-* [Scheduled Ping](#scheduled-ping)
+* [Always-on Instance](#always-on-instance)
 * [Update ID Caching](#update-id-caching)
+* [Poll State Saving](#poll-state-saving)
 * [Permissions Management](#permissions-management)
 
 > ℹ️ TIP
@@ -48,11 +49,14 @@ Super users are able to set group roles (see [Group Management](#group-managemen
 
 Super users can be registered and unregistered in groups where super user operations are permitted. Only ```ADMIN_GROUP``` allows access to the super user commands.
 
-## Scheduled Ping
-To prevent the bot instance from dying, a scheduled ping is run every 10 minutes. This prevents input lag and cold starts, which can severely impact bot response, performance, and even cause duplicate messages due to Telegram's short timeout limit forcing an unnecessary retry.
+## Always-on Instance
+```app.yaml``` sets ```min_instances: 1``` and ```max_instances: 1```, so exactly one instance of the bot is always running. This avoids cold starts (input lag, and duplicate messages from Telegram retrying after a timeout) without needing a scheduled ping like before.
 
 ## Update ID Caching
-As a secondary measure to prevent duplicate messages, the bot stores the highest update ID in a "cache". If the next update ID is less than or equal to the highest update ID, it will not process that update.
+As a secondary measure to prevent duplicate messages, the bot stores the highest update ID in a "cache". If the next update ID is less than or equal to the highest update ID, it will not process that update. To force sequential consistency in messages, the webhook is registered with ```max_connections=1```, so Telegram delivers updates one at a time and in order.
+
+## Poll State Saving
+Everything that changes during a poll (votes, payments, which users have started the bot, and the last update ID) is saved together in one file, ```poll_state.json```. To handle bursts of votes, the bot saves this file in the background at most every 2 seconds, and updates the poll message at most every 3 seconds. Voters get an instant "Added to ..." / "Removed from ..." popup, and the poll message catches up a moment later.
 
 ## Permissions Management
 To prevent other users from accessing the bot, a very simple system of two permissions is implemented: Admin Group only, and super users only. Using commands when one is not in ```ADMIN_GROUP``` and/or is not a super user will lead to the bot rejecting the command.

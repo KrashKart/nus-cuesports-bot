@@ -16,7 +16,6 @@ CMD_LIST: list[BotCommand] = [
     BotCommand("test_end_poll", "End poll in admin chat"),
     BotCommand("current_schedule", "View current schedule"),
     BotCommand("update_schedule", "Update current schedule"),
-    BotCommand("update_ping", "Update scheduled ping duration"),
     BotCommand("view_sessions", "View status of all sessions"),
     BotCommand("update_sessions", "Update active sessions"),
     BotCommand("add_session", "Add available session"),
