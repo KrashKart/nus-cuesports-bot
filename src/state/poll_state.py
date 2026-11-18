@@ -18,11 +18,13 @@ How it works:
 Locks: state_lock guards the state. _write_lock and _edit_lock only serialise
 network calls, and are never held while taking state_lock, so they can't deadlock.
 """
+import ast
 import atexit
 import copy
 import logging
 import threading
 import time
+from typing import NamedTuple
 
 import telebot
 from google.api_core.exceptions import NotFound
@@ -55,6 +57,38 @@ message_ids: dict = {}
 payments: dict = {}
 updates: dict = {}
 started_users: set = set()
+
+# Test polls (/test_poll, /test_end_poll) get their own votes and payments, so testing
+# never touches the live poll or the payments people still owe from it
+test_polls: dict = {}
+test_message_ids: dict = {}
+test_payments: dict = {}
+
+
+class PollSet(NamedTuple):
+    """One poll's data: its votes, and the payments that come from it."""
+    polls: dict
+    message_ids: dict
+    payments: dict
+    payment_button_prefix: str  # added to payment-list button data, to tell live and test buttons apart
+
+
+LIVE = PollSet(polls, message_ids, payments, "")
+TEST = PollSet(test_polls, test_message_ids, test_payments, "testpay:")
+
+
+def user_key(user) -> str:
+    """How a voter is stored in message_ids and payments: str([full_name, username, user_id])."""
+    return str([user.full_name, user.username, user.id])
+
+def parse_user_key(key: str) -> tuple:
+    """(full_name, username, user_id) from a stored user key.
+
+    ast.literal_eval only reads plain values (strings, numbers, lists), unlike eval,
+    which would run any code that ended up in the stored file.
+    """
+    full_name, username, user_id = ast.literal_eval(key)
+    return full_name, username, user_id
 
 _bot = None
 _saving_disabled = False
@@ -100,6 +134,11 @@ def load() -> None:
     payments.update(data.get("payments") or {})
     updates.update(data.get("updates") or {})
     started_users.update(data.get("started_users") or [])
+
+    test = data.get("test") or {}
+    test_polls.update(test.get("polls") or {})
+    test_message_ids.update(test.get("message_ids") or {})
+    test_payments.update(test.get("payments") or {})
 
 def start(bot) -> None:
     """Start the background saver/editor."""
@@ -154,6 +193,7 @@ def _save(force: bool) -> None:
             "payments": payments,
             "updates": updates,
             "started_users": sorted(started_users),
+            "test": {"polls": test_polls, "message_ids": test_message_ids, "payments": test_payments},
         })
         _last_save = now
 

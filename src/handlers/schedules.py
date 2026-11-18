@@ -1,8 +1,7 @@
 from google.cloud import scheduler_v1
 from google.api_core.exceptions import NotFound
-from state.cloud_storage import save_json_file_to_gcs
 from utils.datetime_utils import is_valid_day, is_valid_time, DAYS
-from state.config import get_admin_id, get_schedule, get_prepoll, get_poll, get_end
+from state.config import get_admin_id, get_schedule, get_prepoll, get_poll, get_end, save_config
 from handlers.permissions import _admin_group_perms, _log
 from dotenv import load_dotenv
 import logging, os
@@ -17,10 +16,19 @@ logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 LOCATION_ID = os.getenv("LOCATION_ID")
 
-# Cloud Scheduler sends this header with every job; main.py rejects scheduler-route
+# Cloud Scheduler sends this header with every job; handlers/routes.py rejects scheduler-route
 # requests that don't carry it, so outsiders can't trigger /poll, /end etc.
 SCHEDULER_HEADER = "X-Scheduler-Token"
 SCHEDULER_SECRET = os.getenv("SCHEDULER_SECRET")
+
+# Each job calls the route of the same name (e.g. "poll" calls /poll)
+SCHEDULED_JOBS = ("prepoll", "poll", "end")
+
+def sync_scheduler_jobs(config: dict) -> None:
+    """Make every Cloud Scheduler job match the schedule saved in config.json."""
+    for job in SCHEDULED_JOBS:
+        schedule = get_schedule(config)[job]
+        create_or_update_scheduler_job(job, schedule["day"], schedule["time"], f"{job}_job")
 
 def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
@@ -76,7 +84,7 @@ def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict
             return
         
         schedule_type, day, time = command_params[1].lower(), command_params[2], command_params[3]
-        if schedule_type not in ["prepoll", "poll", "end"]:
+        if schedule_type not in SCHEDULED_JOBS:
             bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
             return
         elif not is_valid_day(day):
@@ -93,7 +101,7 @@ def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict
         job_name = f'{schedule_type}_job'
         create_or_update_scheduler_job(schedule_type, day, time, job_name)
 
-        save_json_file_to_gcs("config.json", config)
+        save_config(config)
         bot.send_message(message.chat.id, f"Schedule updated: {schedule_type.capitalize()} on {day.capitalize()}, {time}")
 
     except Exception as e:

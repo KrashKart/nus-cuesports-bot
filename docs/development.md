@@ -21,8 +21,8 @@
 
 ## Code Layout
 Code in ```src/``` is grouped by what it is responsible for:
-* ```main.py``` --- starts the bot and web server, and connects commands and routes to the code below
-* ```handlers/``` --- receives Telegram commands and updates: command handlers, permission wrappers, the command list and update ID caching
+* ```main.py``` --- starts the bot: loads settings, registers commands, sets the webhook and scheduler jobs
+* ```handlers/``` --- receives Telegram commands and updates. ```command_menu.py``` lists every command with its handler, ```routes.py``` has the web endpoints, and the other files hold the handlers and permission wrappers
 * ```polling/``` --- how polls and confirmations work: building the poll message, recording votes, ending the poll, payments
 * ```state/``` --- everything stored in the bucket: poll state (```poll_state.py```), config access, and reading/writing Cloud Storage
 * ```utils/``` --- small general helpers (dates and times, sending log messages)
@@ -46,6 +46,8 @@ There are 2 main permission wrappers to note when developing commands.
 For functions to use either/both of these wrappers, the function ***must take these arguments and these arguments only***: ```bot: TeleBot```, ```message: Message```, ```messages: dict```, ```config: dict```.
 
 There is a third "permission" ```@_log``` to log and report exceptions for functions, but does not actually provide any permission restriction.
+
+To add a command, write a handler with those four arguments (usually with the wrappers above), then add one line for it to ```COMMANDS``` in ```handlers/command_menu.py```. That one line both connects the handler and adds the command to Telegram's command menu.
 
 ## Polling Timeline and Definition
 1. First, ***prepoll*** is triggered at Wednesday 1200hrs. The prepoll message format is as listed under ```messages["Prepoll Announcement"]``` under ```messages.json```

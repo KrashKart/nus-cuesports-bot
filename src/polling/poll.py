@@ -1,9 +1,12 @@
+import html
 import telebot
 import logging
 import pytz
 from datetime import datetime
 from polling.confirmation import send_confirmation_message
 from state import poll_state
+from state.poll_state import PollSet, user_key, parse_user_key
+from state.config import get_admin_id
 from state.messages import (get_sessions, get_active_sessions, get_prepoll_template, get_poll_question,
                             get_poll_body_template, fill_placeholders, poll_detail_placeholders,
                             payment_director_placeholders)
@@ -51,8 +54,10 @@ def clear_polls(polls: dict) -> None:
     polls.clear()
 
 def send_prepoll(bot: TeleBot, messages: dict, group_id: str | int, config: dict) -> None:
+    # Only this week's active sessions (inactive ones used to be announced too)
     sessions = get_sessions(messages)
-    formatted_slots = "\n    ".join(f"- <b>{name}</b> ({session['Capacity']} pax)" for name, session in sessions.items())
+    formatted_slots = "\n    ".join(f"- <b>{name}</b> ({sessions[name]['Capacity']} pax)"
+                                    for name in get_active_sessions(messages))
     prepoll_message = fill_placeholders(get_prepoll_template(messages), {
         "POLL_OPTIONS": formatted_slots,
         **payment_director_placeholders(messages),
@@ -74,7 +79,8 @@ def render_poll_message(messages: dict, poll: dict) -> str:
         # .get: a session deleted mid-poll shouldn't break the message
         capacity = options.get(sess_name, {}).get("Capacity", "?")
         text += f"<blockquote><b>{sess_name}</b> (👤 {len(names)}/{capacity})</blockquote>"
-        text += ("\n".join(names) + "\n") if names else "No votes yet\n"
+        # Escaped: the message is HTML, and a name containing & or < would make Telegram reject it
+        text += ("\n".join(html.escape(name) for name in names) + "\n") if names else "No votes yet\n"
         text += "\n"
     return text
 
@@ -110,11 +116,14 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
         return
 
     user = call.from_user
-    user_id_lst = str([user.full_name, user.username, user.id])
     user_name = f"{user.full_name} (@{user.username})" if user.username else user.full_name
-    user_name = user_name.replace("<", "").replace(">", "")
+    names = polls[poll_id][option]
+    voters = message_ids.setdefault(option, [])
 
-    is_removing = user_name in polls[poll_id][option]
+    # Found by Telegram user ID, not by name: a name can change between clicks (which
+    # used to add a duplicate vote), and two people can share one (which used to crash)
+    position = _find_voter(voters, user.id)
+    is_removing = position is not None
 
     # Only check when adding a vote: removing one doesn't need a DM later
     if not is_removing and not can_dm_user(bot, user.id, started_users):
@@ -124,12 +133,16 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
     # Toggle user vote
     if is_removing:
         logger.info(f"Removing {user_name} from {option}")
-        polls[poll_id][option].remove(user_name)
-        message_ids[option].remove(user_id_lst)
+        voters.pop(position)
+        # names and voters are always added and removed together, so they line up by position
+        if len(names) == len(voters) + 1:
+            names.pop(position)
+        elif user_name in names:
+            names.remove(user_name)
     else:
         logger.info(f"Adding {user_name} to {option}")
-        polls[poll_id][option].append(user_name)
-        message_ids[option].append(user_id_lst)
+        names.append(user_name)
+        voters.append(user_key(user))
 
     # Saving and the message edit happen in the background (state/poll_state.py),
     # batched so a burst of votes doesn't hit Cloud Storage or Telegram limits
@@ -141,7 +154,33 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
     bot.answer_callback_query(call.id, f"Removed from {option}" if is_removing else f"Added to {option}")
 
 
-def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict, config: dict) -> None:
+def _find_voter(voters: list, user_id: int):
+    """Position of this Telegram user in a session's voter list, or None if they haven't voted."""
+    for position, key in enumerate(voters):
+        try:
+            if parse_user_key(key)[2] == user_id:
+                return position
+        except Exception:
+            continue  # an unreadable entry can't be this user
+    return None
+
+
+def open_poll(bot: TeleBot, messages: dict, config: dict, group_id: int, poll_set: PollSet) -> None:
+    """Start a fresh poll in group_id. Replaces the previous poll in this set, and its payments."""
+    poll_set.polls.clear()
+    poll_set.message_ids.clear()
+    poll_set.payments.clear()
+    poll_state.mark_dirty()  # so the clear is saved even if sending the new poll fails
+    start_poll_announcement(bot, messages, poll_set.polls, group_id, poll_set.message_ids, poll_set.payments, config)
+
+
+def close_poll(bot: TeleBot, messages: dict, config: dict, group_id: int, poll_set: PollSet) -> None:
+    """End this set's open poll and send confirmations. The payment list goes to the admin group."""
+    end_poll(bot, poll_set.polls, poll_set.message_ids, group_id, get_admin_id(config),
+             poll_set.payments, messages, config, poll_set.payment_button_prefix)
+
+
+def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, admin_id: str | int, payments: dict, messages: dict, config: dict, payment_button_prefix: str = "") -> None:
     if not polls:
         logger.info("end_poll called but there is no open poll")
         send_log_message(bot, "End poll called, but there is no open poll", config)
@@ -162,7 +201,7 @@ def end_poll(bot: TeleBot, polls: dict, message_ids: dict, chat_id: str | int, a
     send_log_message(bot, f"Poll ended in group {chat_id} with id {message_id}", config)
 
     try:
-        send_confirmation_message(bot, admin_id, message_ids, payments, messages, config)
+        send_confirmation_message(bot, admin_id, message_ids, payments, messages, config, payment_button_prefix)
 
     except telebot.apihelper.ApiTelegramException as e:
         logger.error(f"Error ending poll for group {chat_id}: {e}")
