@@ -112,10 +112,15 @@ def bump_message(bot, payments):
 def _display_name(full_name, username):
     return f"{full_name} (@{username})" if username else full_name
 
+def _payment_list_order(key):
+    """Sort the payment list by username, ignoring case. People without a username go by full name."""
+    full_name, username, _ = parse_user_key(key)
+    return (username or full_name or "").casefold()
+
 def __convert_payment_message(payment_lst, price_per_session, payment_button_prefix=""):
     markup = InlineKeyboardMarkup()
     message = f"<blockquote><b>Payment List</b></blockquote>"
-    for _user in sorted(payment_lst):
+    for _user in sorted(payment_lst, key=_payment_list_order):
         _val = payment_lst[_user]
         _user_fullname, _user_username, _userid = parse_user_key(_user)
         to_be_paid = f"{len(_val['options']) * price_per_session:.2f}"
