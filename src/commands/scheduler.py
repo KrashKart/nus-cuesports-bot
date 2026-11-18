@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 LOCATION_ID = os.getenv("LOCATION_ID")
 
+# Cloud Scheduler sends this header with every job; main.py rejects scheduler-route
+# requests that don't carry it, so outsiders can't trigger /poll, /end etc.
+SCHEDULER_HEADER = "X-Scheduler-Token"
+SCHEDULER_SECRET = os.getenv("SCHEDULER_SECRET")
+
 def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
     parent = f'projects/{PROJECT_ID}/locations/{LOCATION_ID}'
@@ -34,13 +39,14 @@ def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_
         'http_target': {
             'uri': f'{os.getenv("SCHEDULER_URL")}/{schedule_type}',
             'http_method': scheduler_v1.HttpMethod.POST,
+            'headers': {SCHEDULER_HEADER: SCHEDULER_SECRET},
         },
     }
 
-    # Create or update the job
+    # Always update (not only when the schedule changes) so a new URL or secret
+    # reaches jobs that already exist. update_job raises NotFound if the job is new.
     try:
-        if client.get_job(name=job['name']).schedule != cron_expression:
-            client.update_job(job=job)
+        client.update_job(job=job)
     except NotFound:
         client.create_job(parent=parent, job=job)
     except Exception as e:

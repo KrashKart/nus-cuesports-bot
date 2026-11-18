@@ -5,6 +5,8 @@ import logging
 import re
 import pytz
 import sys
+import hmac
+from functools import wraps
 
 from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
@@ -13,7 +15,7 @@ from features.caching import update_with_cache
 
 from commands.command_autocomplete import __register_commands, CMD_LIST
 from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
-from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping
+from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping, SCHEDULER_HEADER, SCHEDULER_SECRET
 from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
 from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, set_payment_director, set_bot_director, set_location, set_cost
 from commands.misc import send_message_admin, send_message_recre
@@ -66,6 +68,18 @@ def restart_bot():
     python = sys.executable
     os.execl(python, python, *sys.argv)
 
+def load_required_env(name):
+    value = os.getenv(name)
+    if not value:
+        logger.error(f"{name} is not set. Set the {name} environment variable.")
+        raise ValueError(f"{name} is not set. Set the {name} environment variable.")
+    return value
+
+def secret_matches(provided, expected):
+    # compare_digest takes the same time whether or not the strings match,
+    # so the secret can't be guessed by timing responses
+    return provided is not None and hmac.compare_digest(provided.encode(), expected.encode())
+
 # Main function
 def main():
     api_key = load_api_key()
@@ -98,9 +112,22 @@ def main():
         logger.error("No Webhook URL provided. Set the WEBHOOK_URL environment variable.")
         raise ValueError("No Webhook URL provided. Set the WEBHOOK_URL environment variable.")
 
-    # Webhook setup
+    # Secrets that prove a request came from Telegram / Cloud Scheduler
+    WEBHOOK_SECRET = load_required_env("WEBHOOK_SECRET")
+    if not SCHEDULER_SECRET:
+        load_required_env("SCHEDULER_SECRET")  # raises with a clear message
+
+    # Webhook setup: Telegram will send WEBHOOK_SECRET in a header on every update
     bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
+    bot.set_webhook(url=WEBHOOK_URL, secret_token=WEBHOOK_SECRET)
+
+    def scheduler_only(route):
+        @wraps(route)  # keeps each route's own name; Flask needs unique endpoint names
+        def wrapper(*args, **kwargs):
+            if not secret_matches(request.headers.get(SCHEDULER_HEADER), SCHEDULER_SECRET):
+                abort(403)
+            return route(*args, **kwargs)
+        return wrapper
 
     #################################################
     #
@@ -109,20 +136,22 @@ def main():
     #################################################
     @app.route('/webhook', methods=['POST'])
     def webhook():
+        # Checked outside the try: abort() works by raising, and the except below would swallow it
+        if not secret_matches(request.headers.get('X-Telegram-Bot-Api-Secret-Token'), WEBHOOK_SECRET):
+            abort(403)
+        if request.headers.get('content-type') != 'application/json':
+            abort(403)
         try:
-            if request.headers.get('content-type') == 'application/json':
-                json_string = request.get_data().decode('utf-8')
-                update = telebot.types.Update.de_json(json_string)
-                update_with_cache(bot, update, updates)
-                return ''
-            else:
-                abort(403)
+            json_string = request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(json_string)
+            update_with_cache(bot, update, updates)
         except Exception as e:
             logger.error(f"Error processing webhook update: {e}")
             send_log_message(bot, f"Webhook error: {e}", config)
-            return ''
+        return ''
 
     @app.route('/prepoll', methods=['POST'])
+    @scheduler_only
     def scheduled_prepoll():
         try:
             send_prepoll(bot, messages, RECRE_GROUP, config)
@@ -132,6 +161,7 @@ def main():
             return jsonify({"status": "error", "message": str(e)}), 500
 
     @app.route('/poll', methods=['POST'])
+    @scheduler_only
     def scheduled_poll():
         try:
             polls.clear()
@@ -146,6 +176,7 @@ def main():
             return jsonify({"status": "error", "message": str(e)}), 500
         
     @app.route('/end', methods=['POST'])
+    @scheduler_only
     def handle_end_poll():
         try:
             end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages, config)
@@ -155,6 +186,7 @@ def main():
             return jsonify({"status": "error", "message": str(e)}), 500
     
     @app.route('/ping', methods=['POST'])
+    @scheduler_only
     def handle_ping():
         try:
             return jsonify({"status": "success"}), 200

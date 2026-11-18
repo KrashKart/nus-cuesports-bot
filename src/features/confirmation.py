@@ -11,6 +11,14 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages,
     # price of training session
     price_per_session = float(messages["Cost"])
 
+    # Confirmation DMs go out once per poll. payments is only filled by the first run
+    # (and cleared when a new poll starts), so if it has entries the DMs were already
+    # sent: just re-post the payment list so admins can see the latest state.
+    if payments:
+        __send_payment_list(bot, admin_group, payments, price_per_session)
+        send_log_message(bot, "Confirmation already sent for this poll; re-sent payment list only", config)
+        return
+
     # select the first N people that registered
     to_be_confirmed = __find_n_occupancy(message_ids, messages)
 
@@ -47,8 +55,11 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages,
     send_log_message(bot, f"Sent confirmations to all poll members", config)
 
     if len(payments) != 0:
-        markup, payment_message = __convert_payment_message(payments, price_per_session)
-        bot.send_message(admin_group, payment_message, reply_markup=markup, parse_mode='HTML')
+        __send_payment_list(bot, admin_group, payments, price_per_session)
+
+def __send_payment_list(bot, admin_group, payments, price_per_session):
+    markup, payment_message = __convert_payment_message(payments, price_per_session)
+    bot.send_message(admin_group, payment_message, reply_markup=markup, parse_mode='HTML')
 
 def confirm_payment_query(call, bot, payments, group_id, messages):
     price_per_session = float(messages["Cost"])
