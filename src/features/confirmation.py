@@ -50,14 +50,15 @@ def send_confirmation_message(bot, admin_group, message_ids, payments, messages,
         markup, payment_message = __convert_payment_message(payments, price_per_session)
         bot.send_message(admin_group, payment_message, reply_markup=markup, parse_mode='HTML')
 
-def confirm_payment_query(call, bot, payments, group_id):
+def confirm_payment_query(call, bot, payments, group_id, messages):
+    price_per_session = float(messages["Cost"])
     user_id = call.data
     for user_name in payments.keys():
         if user_id == str(eval(user_name)[2]):
             payments[user_name]["paid"] = True
             break
 
-    markup, message = __convert_payment_message(payments)
+    markup, message = __convert_payment_message(payments, price_per_session)
     bot.edit_message_text(chat_id = group_id, message_id=call.message.message_id, text = message, reply_markup=markup, parse_mode='HTML')
     save_json_file_to_gcs("payments.json", payments)
 
@@ -114,6 +115,8 @@ def __find_session_overlap(message_ids, payments):
         for _user in _users:
             if _user not in payments:
                 payments[_user] = {"options": set(), "paid": False}
+            # options is a list after a save/reload, so normalise to a set before adding
+            payments[_user]["options"] = set(payments[_user]["options"])
             payments[_user]["options"].add(_option)
     for _user, v in payments.items():
         v["options"] = list(v["options"])
