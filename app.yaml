@@ -1,5 +1,5 @@
 runtime: python314
-entrypoint: python src/main.py
+entrypoint: gunicorn --chdir src -w 1 --threads 4 -b :$PORT main:app
 
 automatic_scaling:
   min_instances: 0

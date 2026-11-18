@@ -6,6 +6,7 @@ import re
 import pytz
 import sys
 import hmac
+import threading
 from functools import wraps
 
 from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query
@@ -62,7 +63,13 @@ def save_data_to_gcs(file_name, data):
 
 # Bot initialization
 def create_bot(api_key):
-    return telebot.TeleBot(api_key)
+    # threaded=False: handlers run inside the webhook request, so state_lock below
+    # covers them. A threaded bot would hand work to a pool and return immediately.
+    return telebot.TeleBot(api_key, threaded=False)
+
+# Every change to poll/payment/config state happens while holding this lock
+# (webhook updates and scheduled routes). RLock so a handler can call another safely.
+state_lock = threading.RLock()
 
 def restart_bot():
     python = sys.executable
@@ -126,7 +133,8 @@ def main():
         def wrapper(*args, **kwargs):
             if not secret_matches(request.headers.get(SCHEDULER_HEADER), SCHEDULER_SECRET):
                 abort(403)
-            return route(*args, **kwargs)
+            with state_lock:
+                return route(*args, **kwargs)
         return wrapper
 
     #################################################
@@ -144,7 +152,8 @@ def main():
         try:
             json_string = request.get_data().decode('utf-8')
             update = telebot.types.Update.de_json(json_string)
-            update_with_cache(bot, update, updates)
+            with state_lock:
+                update_with_cache(bot, update, updates)
         except Exception as e:
             logger.error(f"Error processing webhook update: {e}")
             send_log_message(bot, f"Webhook error: {e}", config)
@@ -454,9 +463,12 @@ def main():
     job_name = 'ping_job'
     create_or_update_scheduler_job("ping", schedules["ping"]["day"], schedules["ping"]["time"], job_name)
 
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
-
     logger.info("Bot started.")
+    return app
+
+# Module-level so gunicorn can import `app` (see entrypoint in app.yaml).
+# Running this file directly uses Flask's development server instead.
+app = main()
 
 if __name__ == "__main__":
-    main()
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
