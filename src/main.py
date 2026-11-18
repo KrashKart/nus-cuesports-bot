@@ -118,8 +118,10 @@ def main():
             else:
                 abort(403)
         except Exception as e:
-            send_log_message(bot, e, config)
-    
+            logger.error(f"Error processing webhook update: {e}")
+            send_log_message(bot, f"Webhook error: {e}", config)
+            return ''
+
     @app.route('/prepoll', methods=['POST'])
     def scheduled_prepoll():
         try:
@@ -171,8 +173,9 @@ def main():
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(message.chat.id, "Starting bot...")
             logger.info(f"Bot started by admin: {message.chat.id}")
-        if message.chat.id == super_users[0]["id"]:
-            bot.send_message(message.chat.id, f"Admin Group: {ADMIN_GROUP['name']}({ADMIN_GROUP['id']})")
+        if super_users and message.chat.id == super_users[0]["id"]:
+            admin_group = groups.get("ADMIN_GROUP", {})
+            bot.send_message(message.chat.id, f"Admin Group: {admin_group.get('name')}({admin_group.get('id')})")
     
     @bot.message_handler(commands=['restart'])
     def restart(message: Message):
@@ -231,7 +234,7 @@ def main():
         if re.search(r'\b\w+\b:\b\w+\b', call.data) or call.data == "poll_ended":
             callback_query(call, bot, messages, polls, message_ids, group_id, config)
         else:
-            confirm_payment_query(call, bot, payments, group_id)
+            confirm_payment_query(call, bot, payments, group_id, messages)
     
     #################################################
     #

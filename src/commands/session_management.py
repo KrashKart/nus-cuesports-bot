@@ -184,6 +184,6 @@ def set_cost(bot: TeleBot, message: Message, messages: dict, config: dict) -> No
         if not cost.replace('.', '').isdigit():
             bot.send_message(message.chat.id, text = f"Invalid cost! Please enter a valid number.")
             return
-        messages["Cost"] = f"{cost:.2f}"
+        messages["Cost"] = f"{float(cost):.2f}"
         save_json_file_to_gcs("messages.json", messages)
         bot.send_message(message.chat.id, f"Cost updated to: ${messages['Cost']}")
