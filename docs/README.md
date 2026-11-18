@@ -24,14 +24,22 @@ Important Changes ❗
   - [X] Edit Bot Director details
 - [X] Add cost editing functionality
 - [X] Add location editing functionality (including name and building)
+- [X] Replace scheduled ping with always-on instance
+- [X] Save poll data in the background in a single ```poll_state.json```, for faster voting
+- [X] Restructure entire codebase and GCP Bucket
+- [X] Separate test polls from live polls
 
 Bugs 🕷️
 - [X] Fixed formatting issues regarding the $ character
 - [X] Fixed logging issues not propagating to logging telegram group via config
+- [X] Fixed bugs in voting, confirmation, payments and the session/settings commands
 
 Trivial 💡
 - [X] Edit permission order, check for super user/admin group before logging error
-- [X] 
+- [X] Restructure code into ```handlers/```, ```polling/```, ```state/``` and ```utils/``` (see the Development page)
+- [X] Sort payment list by username
+- [X] Secure the webhook and scheduler endpoints
+- [X] Replace scheduled ping with always-on instance
 
 ## TODO (AY25/26)
 Important Changes ❗
