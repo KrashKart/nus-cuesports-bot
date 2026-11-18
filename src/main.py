@@ -191,7 +191,7 @@ def main():
             restart_bot()
 
     @bot.message_handler(commands=['restart_no_save'])
-    def restart(message: Message):
+    def restart_no_save(message: Message):
         if message.chat.id == ADMIN_GROUP:
             send_log_message(bot, f"Bot restart without save called on {message.chat.id}", config)
             restart_bot()
