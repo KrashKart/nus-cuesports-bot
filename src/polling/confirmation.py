@@ -1,7 +1,7 @@
 import telebot
 import logging
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
-from utils import poll_state
+from state import poll_state
 from utils.tg_logging import send_log_message
 from utils.datetime_utils import DAYS
 

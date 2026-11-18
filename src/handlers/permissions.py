@@ -1,6 +1,6 @@
 import logging
 from utils.tg_logging import send_log_message
-from utils.config_interface import get_admin_id, get_super_users_id
+from state.config import get_admin_id, get_super_users_id
 
 from telebot import TeleBot
 from telebot.types import Message

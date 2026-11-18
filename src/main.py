@@ -9,19 +9,19 @@ import hmac
 import signal
 from functools import wraps
 
-from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, remember_started_user
-from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
-from features.caching import update_with_cache
-from utils import poll_state
+from polling.poll import send_prepoll, end_poll, start_poll_announcement, callback_query, remember_started_user
+from polling.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
+from state import poll_state
 
-from commands.command_autocomplete import __register_commands, CMD_LIST
-from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
-from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, SCHEDULER_HEADER, SCHEDULER_SECRET
-from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
-from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, set_payment_director, set_bot_director, set_location, set_cost
-from commands.misc import send_message_admin, send_message_recre
+from handlers.dedupe import update_with_cache
+from handlers.command_menu import __register_commands, CMD_LIST
+from handlers.groups import set_admin_group, set_recre_group, get_group_id, verify_group
+from handlers.schedules import update_schedule, send_current_schedule, create_or_update_scheduler_job, SCHEDULER_HEADER, SCHEDULER_SECRET
+from handlers.super_users import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
+from handlers.poll_settings import view_sessions, update_sessions, add_session, delete_session, set_capacity, set_payment_director, set_bot_director, set_location, set_cost
+from handlers.broadcast import send_message_admin, send_message_recre
 
-from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
+from state.cloud_storage import load_json_file_from_gcs, save_json_file_to_gcs
 from flask import Flask, jsonify, request, abort
 from telebot.types import Message
 
@@ -117,7 +117,7 @@ def main():
     __register_commands(bot, ADMIN_GROUP)
 
     # Poll state (votes, payments, started users, last update ID) lives in one file,
-    # poll_state.json, saved in the background. See utils/poll_state.py.
+    # poll_state.json, saved in the background. See state/poll_state.py.
     poll_state.load()
     poll_state.start(bot)
     polls = poll_state.polls

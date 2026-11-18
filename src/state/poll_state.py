@@ -27,7 +27,7 @@ import time
 import telebot
 from google.api_core.exceptions import NotFound
 
-from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
+from state.cloud_storage import load_json_file_from_gcs, save_json_file_to_gcs
 
 logger = logging.getLogger(__name__)
 

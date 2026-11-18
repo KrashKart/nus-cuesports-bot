@@ -1,9 +1,9 @@
 from google.cloud import scheduler_v1
 from google.api_core.exceptions import NotFound
-from utils.gcs_utils import save_json_file_to_gcs
+from state.cloud_storage import save_json_file_to_gcs
 from utils.datetime_utils import is_valid_day, is_valid_time, DAYS
-from utils.config_interface import get_admin_id, get_schedule, get_prepoll, get_poll, get_end
-from utils.permissions import _admin_group_perms, _log
+from state.config import get_admin_id, get_schedule, get_prepoll, get_poll, get_end
+from handlers.permissions import _admin_group_perms, _log
 from dotenv import load_dotenv
 import logging, os
 

@@ -1,6 +1,6 @@
 import logging
-from utils.config_interface import get_admin_id, get_recre_id
-from utils.permissions import _admin_group_perms, _log
+from state.config import get_admin_id, get_recre_id
+from handlers.permissions import _admin_group_perms, _log
 
 from telebot import TeleBot
 from telebot.types import Message

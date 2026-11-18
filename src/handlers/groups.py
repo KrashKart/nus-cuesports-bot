@@ -1,8 +1,8 @@
 import logging
 from utils.tg_logging import send_log_message
-from utils.gcs_utils import save_json_file_to_gcs
-from utils.config_interface import get_groups, get_admin_id, get_recre_id
-from utils.permissions import _admin_group_perms, _super_user_perms, _log
+from state.cloud_storage import save_json_file_to_gcs
+from state.config import get_groups, get_admin_id, get_recre_id
+from handlers.permissions import _admin_group_perms, _super_user_perms, _log
 
 from telebot import TeleBot
 from telebot.types import Message

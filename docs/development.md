@@ -7,6 +7,7 @@
 [Home](index.md)
 
 # Development ⚙️
+* [Code Layout](#code-layout)
 * [Development Cycle](#development-cycle)
 * [Permissions](#permissions)
 * [Polling Timeline and Definitions](#polling-timeline-and-definition)
@@ -17,6 +18,14 @@
 * **Artifact Registry** (Artifact Registry) --- stores the build artifacts from the deployment (can take up a lot of space! Clear this often)
 * **Logs Explorer** (Logging > Logs Explorer) --- view your logged stuff here
 * **Cloud Scheduler** (Cloud Scheduler) --- control your scheduled tasks here (Important! Start and stop the prepoll/poll/end tasks here!)
+
+## Code Layout
+Code in ```src/``` is grouped by what it is responsible for:
+* ```main.py``` --- starts the bot and web server, and connects commands and routes to the code below
+* ```handlers/``` --- receives Telegram commands and updates: command handlers, permission wrappers, the command list and update ID caching
+* ```polling/``` --- how polls and confirmations work: building the poll message, recording votes, ending the poll, payments
+* ```state/``` --- everything stored in the bucket: poll state (```poll_state.py```), config access, and reading/writing Cloud Storage
+* ```utils/``` --- small general helpers (dates and times, sending log messages)
 
 ## Development Cycle
 1. First, run ```gcloud app deploy``` and wait for it to upload the deployment.

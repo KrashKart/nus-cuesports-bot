@@ -2,8 +2,8 @@ import telebot
 import logging
 import pytz
 from datetime import datetime
-from features.confirmation import send_confirmation_message
-from utils import poll_state
+from polling.confirmation import send_confirmation_message
+from state import poll_state
 from utils.tg_logging import send_log_message
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, CallbackQuery
 from telebot import TeleBot
@@ -121,7 +121,7 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
 
     poll_id, option = call.data.split(":")
     if poll_id not in polls or option not in polls[poll_id]:
-        # A button on an old or replaced poll message
+        # old poll button
         bot.answer_callback_query(call.id, "This poll has closed.", show_alert=True)
         return
 
@@ -147,7 +147,7 @@ def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dic
         polls[poll_id][option].append(user_name)
         message_ids[option].append(user_id_lst)
 
-    # Saving and the message edit happen in the background (utils/poll_state.py),
+    # Saving and the message edit happen in the background (state/poll_state.py),
     # batched so a burst of votes doesn't hit Cloud Storage or Telegram limits
     poll_state.mark_dirty()
     poll_state.queue_edit(call.message.chat.id, call.message.message_id,

@@ -1,9 +1,9 @@
 import json
 import telebot
-from utils.config_interface import get_log_id
+from state.config import get_log_id
 from telebot import TeleBot
 from typing import Any
-from utils.gcs_utils import load_json_file_from_gcs
+from state.cloud_storage import load_json_file_from_gcs
 
 # deprecated
 def load_json_file(file_path: str) -> Any:
