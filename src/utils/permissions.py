@@ -22,7 +22,7 @@ def _admin_group_perms(function: Callable[..., None]) -> Callable[..., None]:
 
 def _super_user_perms(function: Callable[..., None]) -> Callable[..., None]:
     def new_function(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
-        if message.from_user.id not in get_super_users_id(config):
+        if message.from_user.id in get_super_users_id(config):
             function(bot, message, messages, config)
         else:
             bot.send_message(message.chat.id, f"You ({message.from_user.username}) are not allowed to call this command")
