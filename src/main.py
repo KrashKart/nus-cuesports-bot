@@ -9,7 +9,7 @@ import hmac
 import threading
 from functools import wraps
 
-from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query
+from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query, remember_started_user, STARTED_USERS_FILE
 from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
 from features.bump import read_paid_telegrams
 from features.caching import update_with_cache
@@ -111,6 +111,9 @@ def main():
     message_ids = load_data_from_gcs("message_ids.json")
     payments = load_data_from_gcs("payments.json")
     updates = load_data_from_gcs("updates.json")
+    # Stored as a JSON list; a set makes "has this user started the bot?" an O(1) lookup.
+    # Missing file -> load_data_from_gcs returns {} -> empty set.
+    started_users = set(load_data_from_gcs(STARTED_USERS_FILE) or [])
 
     # Initialize Flask app
     app = Flask(__name__)
@@ -210,6 +213,9 @@ def main():
     ################################################# 
     @bot.message_handler(commands=['start'])
     def start_command(message: Message):
+        # /start in a private chat means the bot can now DM this user
+        if message.chat.type == "private":
+            remember_started_user(started_users, message.from_user.id)
         bot.send_message(message.chat.id, "Thank you for starting the bot, this bot will be sending you the confirmation messages for the training sessions.")
         if message.chat.id == ADMIN_GROUP:
             bot.send_message(message.chat.id, "Starting bot...")
@@ -227,6 +233,7 @@ def main():
             save_data_to_gcs("config.json", config)
             save_data_to_gcs("messages.json", messages)
             save_data_to_gcs("updates.json", updates)
+            save_data_to_gcs(STARTED_USERS_FILE, sorted(started_users))
 
             send_log_message(bot, f"Bot restart called on {message.chat.id}", config)
             restart_bot()
@@ -273,7 +280,7 @@ def main():
     def handle_callback_query(call):
         group_id = call.message.chat.id
         if re.search(r'\b\w+\b:\b\w+\b', call.data) or call.data == "poll_ended":
-            callback_query(call, bot, messages, polls, message_ids, group_id, config)
+            callback_query(call, bot, messages, polls, message_ids, group_id, config, started_users)
         else:
             confirm_payment_query(call, bot, payments, group_id, messages)
     

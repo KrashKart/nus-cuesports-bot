@@ -11,16 +11,45 @@ from telebot import TeleBot
 logger = logging.getLogger(__name__)
 singapore_tz = pytz.timezone("Asia/Singapore")
 
-def has_started_bot(bot: TeleBot, user_id: str | int, group_id: str | int) -> bool:
+STARTED_USERS_FILE = "started_users.json"
+
+def remember_started_user(started_users: set, user_id: int) -> None:
+    """Record that the bot can DM this user, and save it so it survives restarts."""
+    if user_id in started_users:
+        return
+    started_users.add(user_id)
     try:
-        numeric_user_id = int(user_id.split('-')[-1])
-        logger.info(f"Checking if user {user_id} has started bot in group {group_id}")
-        message = bot.send_message(numeric_user_id, ".", disable_notification=True)
-        bot.delete_message(numeric_user_id, message.message_id)
+        # Saved as a JSON list (JSON has no set type); main.py turns it back into a set on startup
+        save_json_file_to_gcs(STARTED_USERS_FILE, sorted(started_users))
+    except Exception as e:
+        # Still remembered in memory; the next successful save will include this user
+        logger.error(f"Could not save {STARTED_USERS_FILE}: {e}")
+
+def can_dm_user(bot: TeleBot, user_id: int, started_users: set) -> bool:
+    """True if the bot can DM this user (needed later for confirmation messages).
+
+    started_users is a set, so the lookup is O(1). Only users the bot hasn't
+    seen before cost a Telegram call, and only once.
+    """
+    if user_id in started_users:
         return True
+    try:
+        # One call, no message left behind (at most a brief "typing..." in their chat).
+        # Telegram refuses it if the user never started the bot or has blocked it.
+        bot.send_chat_action(user_id, "typing")
     except telebot.apihelper.ApiTelegramException as e:
-        logger.error(f"Error checking user status for user {user_id} in group {group_id}: {e}")
-        return False
+        if e.error_code == 403 or "chat not found" in str(e.description).lower():
+            logger.info(f"User {user_id} has not started the bot: {e}")
+            return False
+        # Rate limits (429) or other errors: don't block the vote.
+        # Confirmation already logs anyone it can't DM.
+        logger.warning(f"Could not check whether user {user_id} started the bot, allowing vote: {e}")
+        return True
+    except Exception as e:
+        logger.warning(f"Could not check whether user {user_id} started the bot, allowing vote: {e}")
+        return True
+    remember_started_user(started_users, user_id)
+    return True
 
 def clear_polls(polls: dict) -> None:
     polls.clear()
@@ -92,24 +121,26 @@ def start_poll_announcement(bot: TeleBot, messages: dict, polls: dict, group_id:
     save_json_file_to_gcs("payments.json", payments)
     save_json_file_to_gcs("poll_message.json", poll_message)
 
-def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dict, message_ids: dict, group_id: str | int, config: dict) -> None:
+def callback_query(call: CallbackQuery, bot: TeleBot, messages: dict, polls: dict, message_ids: dict, group_id: str | int, config: dict, started_users: set) -> None:
     if call.data == "poll_ended":
         bot.answer_callback_query(call.id, "The poll has ended. Please wait for next week's poll to be released.", show_alert=True)
         return
 
     poll_id, option = call.data.split(":")
     user = call.from_user
-    user_id = f"{user.full_name}-@{user.username}-{user.id}"
     user_id_lst = str([user.full_name, user.username, user.id])
     user_name = f"{user.full_name} (@{user.username})" if user.username else user.full_name
     user_name = user_name.replace("<", "").replace(">", "")
 
-    if not has_started_bot(bot, user_id, group_id):
+    is_removing = user_name in polls[poll_id][option]
+
+    # Only check when adding a vote: removing one doesn't need a DM later
+    if not is_removing and not can_dm_user(bot, user.id, started_users):
         bot.answer_callback_query(call.id, "Please start the bot to participate in the poll. Click the link provided in the poll message to start.", show_alert=True)
         return
 
     # Toggle user vote
-    if user_name in polls[poll_id][option]:
+    if is_removing:
         logger.info(f"Removing {user_name} from {option}")
         polls[poll_id][option].remove(user_name)
         message_ids[option].remove(user_id_lst)
