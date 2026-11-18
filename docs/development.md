@@ -7,6 +7,7 @@
 [Home](index.md)
 
 # Development ⚙️
+* [Code Layout](#code-layout)
 * [Development Cycle](#development-cycle)
 * [Permissions](#permissions)
 * [Polling Timeline and Definitions](#polling-timeline-and-definition)
@@ -16,11 +17,21 @@
 * **Versions** (App Engine > Versions) --- stores deployed instances of the bot
 * **Artifact Registry** (Artifact Registry) --- stores the build artifacts from the deployment (can take up a lot of space! Clear this often)
 * **Logs Explorer** (Logging > Logs Explorer) --- view your logged stuff here
-* **Cloud Scheduler** (Cloud Scheduler) --- control your scheduled tasks here (Important! Start and stop the prepoll/poll/end/ping tasks during on/off-semester periods here)
+* **Cloud Scheduler** (Cloud Scheduler) --- control your scheduled tasks here (Important! Start and stop the prepoll/poll/end tasks here!)
+
+## Code Layout
+Code in ```src/``` is grouped by what it is responsible for:
+* ```main.py``` --- starts the bot: loads settings, registers commands, sets the webhook and scheduler jobs
+* ```handlers/``` --- receives Telegram commands and updates. ```command_menu.py``` lists every command with its handler, ```routes.py``` has the web endpoints, and the other files hold the handlers and permission wrappers
+* ```polling/``` --- how polls and confirmations work: building the poll message, recording votes, ending the poll, payments
+* ```state/``` --- everything stored in the bucket: poll state (```poll_state.py```), config access, and reading/writing Cloud Storage
+* ```utils/``` --- small general helpers (dates and times, sending log messages)
 
 ## Development Cycle
 1. First, run ```gcloud app deploy``` and wait for it to upload the deployment.
 1. If you need to change the ```.json``` files, head to **Buckets**, then go to the ```recreational-deployment.appspot.com``` bucket for the files.
+   - Settings are in ```config.json``` and ```messages.json```. Poll data (votes, payments, started users) is in ```poll_state.json```.
+   - After editing ```poll_state.json``` by hand, run ```/restart_no_save``` straight away so the bot reloads your edit instead of overwriting it. Avoid doing this while people are voting as any activity before the restart is saved over your edit.
 1. Next, ***test your code***.
 1. Afterwards, head to **Versions** and *delete any unwanted instances*.
 1. Lastly, go to the **Artifact Registry** and *delete any unwanted artifacts*. These essentially allow GCP to deploy faster (using caches, build files, etc) and are not needed in the long run. You can consider clearing both folders in ```gae-standard``` and both folders in ```asia.gcr.io```.
@@ -35,6 +46,8 @@ There are 2 main permission wrappers to note when developing commands.
 For functions to use either/both of these wrappers, the function ***must take these arguments and these arguments only***: ```bot: TeleBot```, ```message: Message```, ```messages: dict```, ```config: dict```.
 
 There is a third "permission" ```@_log``` to log and report exceptions for functions, but does not actually provide any permission restriction.
+
+To add a command, write a handler with those four arguments (usually with the wrappers above), then add one line for it to ```COMMANDS``` in ```handlers/command_menu.py```. That one line both connects the handler and adds the command to Telegram's command menu.
 
 ## Polling Timeline and Definition
 1. First, ***prepoll*** is triggered at Wednesday 1200hrs. The prepoll message format is as listed under ```messages["Prepoll Announcement"]``` under ```messages.json```

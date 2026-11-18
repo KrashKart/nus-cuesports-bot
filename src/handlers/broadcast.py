@@ -1,6 +1,6 @@
 import logging
-from utils.config_interface import get_admin_id, get_recre_id
-from utils.permissions import _admin_group_perms, _log
+from state.config import get_admin_id, get_recre_id
+from handlers.permissions import _admin_group_perms, _log
 
 from telebot import TeleBot
 from telebot.types import Message
@@ -8,7 +8,13 @@ from telebot.types import Message
 logger = logging.getLogger(__name__)
 
 def _send_message_to_group(bot: TeleBot, message: Message, group_id) -> None:
-    text = ' '.join(message.html_text.split(' ')[1:])
+    # Everything after the command. Split on any whitespace, not just spaces: with
+    # split(' '), a message starting on a new line after the command was lost.
+    parts = message.html_text.split(maxsplit=1)
+    text = parts[1] if len(parts) > 1 else ""
+    if not text.strip():
+        bot.send_message(message.chat.id, "Usage: /send_admin <message> or /send_recre <message>")
+        return
     bot.send_message(group_id, text, parse_mode="HTML")
 
 @_admin_group_perms

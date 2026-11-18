@@ -1,9 +1,8 @@
 from google.cloud import scheduler_v1
 from google.api_core.exceptions import NotFound
-from utils.gcs_utils import save_json_file_to_gcs
 from utils.datetime_utils import is_valid_day, is_valid_time, DAYS
-from utils.config_interface import get_admin_id, get_schedule, get_prepoll, get_poll, get_end
-from utils.permissions import _admin_group_perms, _log
+from state.config import get_admin_id, get_schedule, get_prepoll, get_poll, get_end, save_config
+from handlers.permissions import _admin_group_perms, _log
 from dotenv import load_dotenv
 import logging, os
 
@@ -16,6 +15,20 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 PROJECT_ID = os.getenv("PROJECT_ID")
 LOCATION_ID = os.getenv("LOCATION_ID")
+
+# Cloud Scheduler sends this header with every job; handlers/routes.py rejects scheduler-route
+# requests that don't carry it, so outsiders can't trigger /poll, /end etc.
+SCHEDULER_HEADER = "X-Scheduler-Token"
+SCHEDULER_SECRET = os.getenv("SCHEDULER_SECRET")
+
+# Each job calls the route of the same name (e.g. "poll" calls /poll)
+SCHEDULED_JOBS = ("prepoll", "poll", "end")
+
+def sync_scheduler_jobs(config: dict) -> None:
+    """Make every Cloud Scheduler job match the schedule saved in config.json."""
+    for job in SCHEDULED_JOBS:
+        schedule = get_schedule(config)[job]
+        create_or_update_scheduler_job(job, schedule["day"], schedule["time"], f"{job}_job")
 
 def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_name: str) -> None:
     client = scheduler_v1.CloudSchedulerClient()
@@ -34,13 +47,14 @@ def create_or_update_scheduler_job(schedule_type: str, day: str, time: str, job_
         'http_target': {
             'uri': f'{os.getenv("SCHEDULER_URL")}/{schedule_type}',
             'http_method': scheduler_v1.HttpMethod.POST,
+            'headers': {SCHEDULER_HEADER: SCHEDULER_SECRET},
         },
     }
 
-    # Create or update the job
+    # Always update (not only when the schedule changes) so a new URL or secret
+    # reaches jobs that already exist. update_job raises NotFound if the job is new.
     try:
-        if client.get_job(name=job['name']).schedule != cron_expression:
-            client.update_job(job=job)
+        client.update_job(job=job)
     except NotFound:
         client.create_job(parent=parent, job=job)
     except Exception as e:
@@ -70,7 +84,7 @@ def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict
             return
         
         schedule_type, day, time = command_params[1].lower(), command_params[2], command_params[3]
-        if schedule_type not in ["prepoll", "poll", "end"]:
+        if schedule_type not in SCHEDULED_JOBS:
             bot.send_message(message.chat.id, "Invalid schedule type. Use 'prepoll', 'poll', or 'end'.")
             return
         elif not is_valid_day(day):
@@ -87,38 +101,8 @@ def update_schedule(bot: TeleBot, message: Message, messages: dict, config: dict
         job_name = f'{schedule_type}_job'
         create_or_update_scheduler_job(schedule_type, day, time, job_name)
 
-        save_json_file_to_gcs("config.json", config)
+        save_config(config)
         bot.send_message(message.chat.id, f"Schedule updated: {schedule_type.capitalize()} on {day.capitalize()}, {time}")
-
-    except Exception as e:
-        bot.send_message(message.chat.id, f"Error updating schedule: {e}")
-        logger.error(f"Error updating schedule: {e}")
-
-@_log
-@_admin_group_perms
-def update_ping(bot: TeleBot, message: Message, messages: dict, config: dict) -> None:
-    try:
-        command_params = message.text.split()
-        if len(command_params) != 2:
-            bot.send_message(message.chat.id, "Usage: /update_ping <interval_mins>")
-            return
-        elif not command_params[1].isdigit():
-            bot.send_message(message.chat.id, "Ping interval in minutes must be an integer!")
-            return
-        
-        ping_interval = command_params[1]
-
-        day = get_schedule(config)["ping"]["day"]
-        time_prefix = get_schedule(config)["ping"]["time"].split("/")[0]
-        new_time = time_prefix + "/" + ping_interval
-        get_schedule(config)["ping"]["time"] = new_time
-
-        # Update Cloud Scheduler job
-        job_name = f'ping_job'
-        create_or_update_scheduler_job("ping", day, new_time, job_name)
-
-        save_json_file_to_gcs("config.json", config)
-        bot.send_message(message.chat.id, f"Schedule updated: Ping every {ping_interval} minutes.")
 
     except Exception as e:
         bot.send_message(message.chat.id, f"Error updating schedule: {e}")

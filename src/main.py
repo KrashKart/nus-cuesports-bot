@@ -1,430 +1,77 @@
-from dotenv import load_dotenv
-import telebot
-import os
+"""Entry point: loads the settings, sets up the bot, and returns the web app gunicorn serves.
+
+Where things live:
+- handlers/command_menu.py: every command and the function that handles it
+- handlers/routes.py: the /webhook endpoint and the scheduled-job endpoints
+- state/: everything saved in the bucket
+See "Code Layout" in docs/development.md for the rest.
+"""
 import logging
-import re
-import pytz
-import sys
+import os
 
-from features.polls import send_prepoll, end_poll, start_poll_announcement, callback_query
-from features.confirmation import send_confirmation_message, confirm_payment_query, unconfirm_payment
-from features.bump import read_paid_telegrams
-from features.caching import update_with_cache
+import telebot
+from dotenv import load_dotenv
 
-from commands.command_autocomplete import __register_commands, CMD_LIST
-from commands.group_management import set_admin_group, set_recre_group, get_group_id, verify_group
-from commands.scheduler import update_schedule, send_current_schedule, create_or_update_scheduler_job, update_ping
-from commands.super_user import get_user_id, register_super_user, unregister_super_user, is_super_user, list_super_users
-from commands.session_management import view_sessions, update_sessions, add_session, delete_session, set_capacity, set_payment_director, set_bot_director, set_location, set_cost
-from commands.misc import send_message_admin, send_message_recre
-
-from utils.gcs_utils import load_json_file_from_gcs, save_json_file_to_gcs
-from flask import Flask, jsonify, request, abort
-from telebot.types import Message
-
+from handlers.command_menu import register_commands
+from handlers.routes import create_app
+from handlers.schedules import sync_scheduler_jobs
+from state import poll_state
+from state.cloud_storage import load_json_file_from_gcs
+from state.config import CONFIG_FILE, get_schedule
+from state.messages import MESSAGES_FILE
 from utils.tg_logging import send_log_message
 
-singapore_tz = pytz.timezone('Asia/Singapore')
-
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load .env file
 load_dotenv()
 
-# Load API Key
-def load_api_key():
-    api_key = os.getenv("TELEGRAM_API_KEY")
-    if not api_key:
-        logger.error("No API key provided. Set the TELEGRAM_API_KEY environment variable.")
-        raise ValueError("No API key provided. Set the TELEGRAM_API_KEY environment variable.")
-    return api_key
 
-# Load and Save Persistent Data from Google Cloud Storage
-def load_data_from_gcs(file_name):
-    try:
-        data = load_json_file_from_gcs(file_name) or {}
-        logger.info(f"Data loaded successfully from GCS: {file_name}.")
-        return data
-    except Exception as e:
-        logger.error(f"Error loading data from GCS: {file_name}, {e}")
-        return {}
+def load_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        logger.error(f"{name} is not set. Set the {name} environment variable.")
+        raise ValueError(f"{name} is not set. Set the {name} environment variable.")
+    return value
 
-def save_data_to_gcs(file_name, data):
-    try:
-        save_json_file_to_gcs(file_name, data)
-        logger.info(f"Data saved successfully to GCS: {file_name}.")
-    except Exception as e:
-        logger.error(f"Error saving data to GCS: {file_name}, {e}")
 
-# Bot initialization
-def create_bot(api_key):
-    return telebot.TeleBot(api_key)
-
-def restart_bot():
-    python = sys.executable
-    os.execl(python, python, *sys.argv)
-
-# Main function
 def main():
-    api_key = load_api_key()
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    api_key = load_required_env("TELEGRAM_API_KEY")
+    webhook_url = load_required_env("WEBHOOK_URL")
+    webhook_secret = load_required_env("WEBHOOK_SECRET")
+    load_required_env("SCHEDULER_SECRET")  # read by handlers/schedules.py; checked here so a missing one stops startup
 
-    # Load config and messages
-    config = load_data_from_gcs("config.json")
-    messages = load_data_from_gcs("messages.json")
-    groups = config.get("groups", {})
-    schedules = config.get("schedules", {})
-    super_users = config.get("super_users", [])
+    # No fallback to empty settings if these can't be read: running with an empty config
+    # and later saving it (e.g. on /register_super_user) would overwrite the real one.
+    config = load_json_file_from_gcs(CONFIG_FILE)
+    messages = load_json_file_from_gcs(MESSAGES_FILE)
+    # The keep-alive ping was removed (min_instances: 1 keeps the bot running instead).
+    # Dropping it here also removes it from config.json the next time config is saved.
+    get_schedule(config).pop("ping", None)
 
-    ADMIN_GROUP = groups.get("ADMIN_GROUP", {}).get("id", None)
-    RECRE_GROUP = groups.get("RECRE_GROUP", {}).get("id", None)
+    # threaded=False: handlers run inside the webhook request, under state_lock.
+    # A threaded bot would hand them to a pool and return before they've run.
+    bot = telebot.TeleBot(api_key, threaded=False)
 
-    bot = create_bot(api_key)
-    send_log_message(bot, f"Bot started", config)
-    __register_commands(bot, ADMIN_GROUP)
+    # Votes, payments, started users and the last update ID (see state/poll_state.py)
+    poll_state.load()
+    poll_state.start(bot)
 
-    # Persistent data
-    polls = load_data_from_gcs("polls.json")
-    message_ids = load_data_from_gcs("message_ids.json")
-    payments = load_data_from_gcs("payments.json")
-    updates = load_data_from_gcs("updates.json")
+    register_commands(bot, messages, config)
 
-    # Initialize Flask app
-    app = Flask(__name__)
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-    if not WEBHOOK_URL:
-        logger.error("No Webhook URL provided. Set the WEBHOOK_URL environment variable.")
-        raise ValueError("No Webhook URL provided. Set the WEBHOOK_URL environment variable.")
+    # Telegram sends webhook_secret with every update (checked in handlers/routes.py).
+    # max_connections=1: one update at a time and in order, which handlers/dedupe.py relies on.
+    bot.set_webhook(url=webhook_url, secret_token=webhook_secret, max_connections=1)
+    sync_scheduler_jobs(config)
 
-    # Webhook setup
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
-
-    #################################################
-    #
-    #  Webhook and Scheduling functions
-    #
-    #################################################
-    @app.route('/webhook', methods=['POST'])
-    def webhook():
-        try:
-            if request.headers.get('content-type') == 'application/json':
-                json_string = request.get_data().decode('utf-8')
-                update = telebot.types.Update.de_json(json_string)
-                update_with_cache(bot, update, updates)
-                return ''
-            else:
-                abort(403)
-        except Exception as e:
-            logger.error(f"Error processing webhook update: {e}")
-            send_log_message(bot, f"Webhook error: {e}", config)
-            return ''
-
-    @app.route('/prepoll', methods=['POST'])
-    def scheduled_prepoll():
-        try:
-            send_prepoll(bot, messages, RECRE_GROUP, config)
-            return jsonify({"status": "success"}), 200
-        except Exception as e:
-            logger.error(f"Error sending prepoll announcement: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-    @app.route('/poll', methods=['POST'])
-    def scheduled_poll():
-        try:
-            polls.clear()
-            message_ids.clear()
-            payments.clear()
-            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments, config)
-            save_data_to_gcs("polls.json", polls)
-            save_data_to_gcs("message_ids.json", message_ids)
-            return jsonify({"status": "success"}), 200
-        except Exception as e:
-            logger.error(f"Error starting poll: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
-        
-    @app.route('/end', methods=['POST'])
-    def handle_end_poll():
-        try:
-            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages, config)
-            return jsonify({"status": "success"}), 200
-        except Exception as e:
-            logger.error(f"Error ending poll: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
-    
-    @app.route('/ping', methods=['POST'])
-    def handle_ping():
-        try:
-            return jsonify({"status": "success"}), 200
-        except Exception as e:
-            logger.error(f"Error pinging: {e}")
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-    #################################################
-    #
-    #  Bot Operations
-    #
-    ################################################# 
-    @bot.message_handler(commands=['start'])
-    def start_command(message: Message):
-        bot.send_message(message.chat.id, "Thank you for starting the bot, this bot will be sending you the confirmation messages for the training sessions.")
-        if message.chat.id == ADMIN_GROUP:
-            bot.send_message(message.chat.id, "Starting bot...")
-            logger.info(f"Bot started by admin: {message.chat.id}")
-        if super_users and message.chat.id == super_users[0]["id"]:
-            admin_group = groups.get("ADMIN_GROUP", {})
-            bot.send_message(message.chat.id, f"Admin Group: {admin_group.get('name')}({admin_group.get('id')})")
-    
-    @bot.message_handler(commands=['restart'])
-    def restart(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            save_data_to_gcs("polls.json", polls)
-            save_data_to_gcs("message_ids.json", message_ids)
-            save_data_to_gcs("payments.json", payments)
-            save_data_to_gcs("config.json", config)
-            save_data_to_gcs("messages.json", messages)
-            save_data_to_gcs("updates.json", updates)
-
-            send_log_message(bot, f"Bot restart called on {message.chat.id}", config)
-            restart_bot()
-
-    @bot.message_handler(commands=['restart_no_save'])
-    def restart_no_save(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            send_log_message(bot, f"Bot restart without save called on {message.chat.id}", config)
-            restart_bot()
-
-    @bot.message_handler(commands=['help', 'command_list'])
-    def help_command(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            bot.send_message(
-                message.chat.id,
-                text="You can refer to the commands list <a href='https://krashkart.github.io/nus-cuesports-bot/commands'>here</a>!",
-                parse_mode='HTML'
-            )
-
-    #################################################
-    #
-    #  Recre poll functions (sends to RECRE_GROUP)
-    #
-    ################################################# 
-    @bot.message_handler(commands=['prepoll'])
-    def start_prepoll_announcement(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            send_prepoll(bot, messages, RECRE_GROUP, config)
-
-    @bot.message_handler(commands=['poll'])
-    def handle_start_poll_announcement(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            polls.clear()
-            message_ids.clear()
-            payments.clear()
-            start_poll_announcement(bot, messages, polls, RECRE_GROUP, message_ids, payments, config)
-    
-    @bot.message_handler(commands=['end_poll'])
-    def handle_end_poll(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            end_poll(bot, polls, message_ids, RECRE_GROUP, ADMIN_GROUP, payments, messages, config)
-
-    @bot.callback_query_handler(func=lambda call: True)
-    def handle_callback_query(call):
-        group_id = call.message.chat.id
-        if re.search(r'\b\w+\b:\b\w+\b', call.data) or call.data == "poll_ended":
-            callback_query(call, bot, messages, polls, message_ids, group_id, config)
-        else:
-            confirm_payment_query(call, bot, payments, group_id, messages)
-    
-    #################################################
-    #
-    #  Recre Confirmation Functions (Actual)
-    #
-    #################################################
-    @bot.message_handler(commands=["confirmation"])
-    def handle_confirmation_message(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            send_confirmation_message(bot, ADMIN_GROUP, message_ids, payments, messages, config)
-
-    @bot.message_handler(commands=["unconfirm"])
-    def handle_unconfirm_message(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            unconfirm_payment(bot, message, payments, ADMIN_GROUP)
-    
-    #################################################
-    #
-    #  Test poll functions (sends to ADMIN_GROUP)
-    #
-    #################################################
-    @bot.message_handler(commands=['test_prepoll'])
-    def handle_start_test_prepoll_announcement(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            send_prepoll(bot, messages, ADMIN_GROUP, config)
-    
-    @bot.message_handler(commands=['test_poll'])
-    def handle_start_test_poll_announcement(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            polls.clear()
-            message_ids.clear()
-            payments.clear()
-            start_poll_announcement(bot, messages, polls, ADMIN_GROUP, message_ids, payments, config)
-    
-    @bot.message_handler(commands=['test_end_poll'])
-    def handle_test_end_poll(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            end_poll(bot, polls, message_ids, ADMIN_GROUP, ADMIN_GROUP, payments, messages, config)
-
-    #################################################
-    #
-    #  Scheduling Management
-    #
-    #################################################
-    @bot.message_handler(commands=['current_schedule'])
-    def send_current_schedule_handler(message: Message):
-        send_current_schedule(bot, message, messages, config)
-        
-    @bot.message_handler(commands=['update_schedule'])
-    def update_schedule_handler(message: Message):
-        update_schedule(bot, message, messages, config)
-
-    @bot.message_handler(commands=['update_ping'])
-    def update_ping_handler(message: Message):
-        update_ping(bot, message, messages, config)
-    
-    #################################################
-    #
-    #  Session Management
-    #
-    #################################################
-    @bot.message_handler(commands=['view_sessions'])
-    def view_sessions_handler(message: Message):
-        view_sessions(bot, message, messages, config)
-
-    @bot.message_handler(commands=['update_sessions'])
-    def update_sessions_handler(message: Message):
-        update_sessions(bot, message, messages, config)
-
-    @bot.message_handler(commands=['add_session'])
-    def add_session_handler(message: Message):
-        add_session(bot, message, messages, config)
-
-    @bot.message_handler(commands=['delete_session'])
-    def delete_session_handler(message: Message):
-        delete_session(bot, message, messages, config)
-    
-    @bot.message_handler(commands=['set_capacity'])
-    def set_capacity_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            set_capacity(bot, message, messages, config)
-
-    @bot.message_handler(commands=['set_payment_director'])
-    def set_payment_director_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            set_payment_director(bot, message, messages, config)
-
-    @bot.message_handler(commands=['set_bot_director'])
-    def set_bot_director_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            set_bot_director(bot, message, messages, config)
-
-    @bot.message_handler(commands=['set_location'])
-    def set_location_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            set_location(bot, message, messages, config)
-
-    @bot.message_handler(commands=['set_cost'])
-    def set_cost_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            set_cost(bot, message, messages, config)
-
-    # WIP
-    @bot.message_handler(commands=['get_paid'])
-    def get_paid_list_handler(message: Message):
-        if message.chat.id == ADMIN_GROUP:
-            read_paid_telegrams(bot, message, ADMIN_GROUP)
-            
-
-    #################################################
-    #
-    #  Group Management Functions
-    #
-    #################################################
-    @bot.message_handler(commands=['set_recre'])
-    def set_recre_handler(message: Message):
-        set_recre_group(bot, message, messages, config)
-        bot.send_message(message.chat.id, "Remember to restart the bot to effect changes...")
-
-    @bot.message_handler(commands=['set_admin'])
-    def set_admin_group_handler(message: Message):
-        set_admin_group(bot, message, messages, config)
-        bot.send_message(message.chat.id, "Remember to restart the bot to effect changes...")
-    
-    @bot.message_handler(commands=['verify_groups'])
-    def verify_group_handler(message: Message):
-        verify_group(bot, message, messages, config)
-    
-    @bot.message_handler(commands=['get_group_id'])
-    def get_group_id_handler(message: Message):
-        get_group_id(bot, message, messages, config)
-
-    #################################################
-    #
-    #  Super User Management
-    #
-    #################################################
-    @bot.message_handler(commands=['register_super_user'])
-    def register_super_user_handler(message: Message):
-        register_super_user(bot, message, messages, config)
-    
-    @bot.message_handler(commands=['unregister_super_user'])
-    def unregister_super_user_handler(message: Message):
-        unregister_super_user(bot, message, messages, config)
-
-    @bot.message_handler(commands=['is_super_user'])
-    def is_super_user_handler(message: Message):
-        is_super_user(bot, message, messages, config)
-
-    @bot.message_handler(commands=['list_super_users'])
-    def list_super_users_handler(message: Message):
-        list_super_users(bot, message, messages, config)
-
-    @bot.message_handler(commands=['get_user_id'])
-    def get_user_id_handler(message: Message):
-        get_user_id(bot, message, messages, config)
-
-    #################################################
-    #
-    #  Miscellaneous
-    #
-    #################################################
-    @bot.message_handler(commands=['send_admin'])
-    def send_message_admin_handler(message: Message):
-        send_message_admin(bot, message, messages, config)
-    
-    @bot.message_handler(commands=['send_recre'])
-    def send_message_recre_handler(message: Message):
-        send_message_recre(bot, message, messages, config)
-        
-    #################################################
-    #
-    #  Task Schedules
-    #
-    #################################################
-    job_name = 'prepoll_job'
-    create_or_update_scheduler_job("prepoll", schedules["prepoll"]["day"], schedules["prepoll"]["time"], job_name)
-
-    job_name = 'poll_job'
-    create_or_update_scheduler_job("poll", schedules["poll"]["day"], schedules["poll"]["time"], job_name)
-
-    job_name = 'end_job'
-    create_or_update_scheduler_job("end", schedules["end"]["day"], schedules["end"]["time"], job_name)
-
-    job_name = 'ping_job'
-    create_or_update_scheduler_job("ping", schedules["ping"]["day"], schedules["ping"]["time"], job_name)
-
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
-
+    send_log_message(bot, "Bot started", config)
     logger.info("Bot started.")
+    return create_app(bot, messages, config, webhook_secret)
+
+
+# Module-level so gunicorn can import `app` (see entrypoint in app.yaml).
+# Running this file directly uses Flask's development server instead.
+app = main()
 
 if __name__ == "__main__":
-    main()
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))

@@ -25,7 +25,6 @@
 - [Scheduling Management](#scheduling-management)
    * [current_schedule](#current_schedule)
    * [update_schedule](#update_schedule)
-   * [update_ping](#update_ping)
 - [Session Management](#session-management)
    * [view_sessions](#view_sessions)
    * [update_sessions](#update_sessions)
@@ -65,7 +64,7 @@ Starts the bot.
 🛡️
 Usage: ```/restart```
 
-Restarts the bot. Must be called when changing groups/replacing json files so the bot can restart and retrieve the new settings. Even though the bot updates the groups dictionary and json file when changing groups, the ```ADMIN_GROUP``` and ```RECRE_GROUP``` ids are stored as a separate variable, thus are immutable until next restart. ***Saves all jsons in the current state and reloads them upon startup***.
+Restarts the bot. ***Saves all jsons in the current state and reloads them upon startup***. Changing groups with ```/set_admin``` or ```/set_recre``` takes effect immediately and doesn't need a restart. After editing the json files in the bucket by hand, use ```/restart_no_save``` instead.
 
 ### restart_no_save
 🛡️
@@ -106,9 +105,9 @@ Manually sends confirmation information to all polled members, and sends a compi
 
 ### unconfirm
 🛡️
-Usage: ```/unconfirm <user name>```
+Usage: ```/unconfirm <@username, user ID or full name>```
 
-Unconfirms payment for a user. This command is untested and still a W.I.P.
+Marks a user's payment as not paid and re-sends the payment list. The name must match exactly. If more than one person matches, the bot lists them so you can use their @username or user ID instead.
 
 ### test_prepoll
 🛡️
@@ -120,7 +119,7 @@ Sends an identical prepoll to the ```ADMIN_GROUP```
 🛡️
 Usage: ```/test_poll```
 
-Sends an identical poll to the ```ADMIN_GROUP```. Beware as this shares the same json file and storage as ```/poll```, so calling this when polls are ongoing in the ```RECRE_GROUP``` ***can overwrite the current data*** from the ongoing polls.
+Sends an identical poll to the ```ADMIN_GROUP```. Test polls keep their own votes and payments, so this is safe to use while a live poll is running or payments are still being collected.
 
 ### test_end_poll
 🛡️
@@ -140,12 +139,6 @@ Views the current scheduling datetimes for prepoll, poll and end poll.
 Usage: ```/update_schedule <prepoll/poll/end> <day> <time>```
 
 Updates the scheduling for only one of prepoll, poll and end poll. Days must be entered in full and capitals are optional ("Monday" and "monday" are fine) and time must be entered in 24-hour format with a colon (HH:MM).
-
-### update_ping
-🛡️
-Usage: ```/update_ping <interval in minutes>```
-
-Updates the ping interval, which must be an integer, so the bot will ping at the new interval to prevent cold starts.
 
 ## Session Management
 Here, we define two types of sessions, active and available. Active sessions are sessions that the bot will include in the poll and prepoll messages, while available sessions are sessions that are stored in the bot but are not sent as an official session.
@@ -224,7 +217,7 @@ Usage: ```/set_admin```
 
 Sets the group this is called in as the ```ADMIN_GROUP```.
 
-Also see the note about changing groups in [```/restart```](#restart).
+Takes effect immediately; no restart needed.
 
 ### set_recre
 👤
@@ -232,7 +225,7 @@ Usage: ```/set_recre```
 
 Sets the group this is called in as the ```RECRE_GROUP```.
 
-Also see the note about changing groups in [```/restart```](#restart).
+Takes effect immediately; no restart needed.
 
 ### get_group_id
 👤
